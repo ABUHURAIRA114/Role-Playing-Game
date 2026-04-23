@@ -1,5 +1,7 @@
 #include "FuncDef.h"
 
+Scene scene;
+
 int main () {
 
     CameraMI camera({ 0.0f, 10.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
@@ -7,9 +9,13 @@ int main () {
     camera.sensitivity = 0.5f;
     camera.Target({0, 0, 0});
 
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "My first RAYLIB program!");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Role-Playing Game");
     SetTargetFPS(60);
-    Box box[2] = {Box({10, 10, 10}, 2), Box({-10, -10, -10}, 2)};
+    
+    scene.sceneCamera = camera;
+    scene.AddObject(new Box({0, 0, 0}, 1));
+    scene.AddObject(new Box({2, 0, 2}, 1));
+
     Ray tRay = {camera.Camera().position, {0, 0, 0}};
     RayCollision rC = {false, 0, {0, 0, 0}, {0, 0, 0}};
     Box* selected = nullptr;
@@ -20,19 +26,10 @@ int main () {
 
     while (WindowShouldClose() == false){
    
-        // camTarget.x += GetDirectionalInputV().x;
-        // camTarget.z += GetDirectionalInputV().y;
-
         dT = GetFrameTime();
 
-        if (IsKeyPressed(FREE_CAMERA_KEY))
-        {
-            DisableCursor();
-        }
-        else if (IsKeyReleased(FREE_CAMERA_KEY))
-        {
-            EnableCursor();
-        }
+        if (IsKeyPressed(FREE_CAMERA_KEY)) DisableCursor(); 
+        else if (IsKeyReleased(FREE_CAMERA_KEY)) EnableCursor(); 
         
         speedText = "";
         text = "Camera Off";
@@ -68,14 +65,15 @@ int main () {
         if (IsKeyPressed(SELECTION_KEY))
         {
             selected = nullptr;
-            for (int i = 0; i < 2; i++)
-                {
-                    rC = GetRayCollisionBox(tRay, box[i].Boundary());
-                    if (rC.hit) {
-                        selected = &box[i];
-                        break;
-                    }
+            for (int i = 0; i < scene.ObjectCount(); i++)
+            {
+                Box* box = scene.Objects()[i];
+                rC = GetRayCollisionBox(tRay, box->Boundary());
+                if (rC.hit) {
+                    selected = box;
+                    break;
                 }
+            } 
         }
 
         BeginDrawing();
@@ -84,32 +82,26 @@ int main () {
             ClearBackground(RAYWHITE);
 
             DrawGrid(100, 1.0f);
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < scene.ObjectCount(); i++)
             {
-                DrawModel(box[i].Model(), box[i].Position(), box[i].Size(), DARKBLUE);
+                Box* box = scene.Objects()[i];
+                DrawModel(box->Model(), box->Position(), box->Size(), DARKBLUE);
             }
-            // DrawSphere(camTarget, 0.5f, RED);
             DrawCubeWires((Vector3){ 2.0f, 0.5f, 2.0f }, 1.0f, 1.0f, 1.0f, DARKGRAY);
 
         EndMode3D();
 
             DrawText("Camera", 10, 20, 20, DARKGREEN);
-            DrawText(TextFormat("X: %.2f", camera.Camera().position.x), 10, 40, 20, DARKGRAY);
-            DrawText(TextFormat("Y: %.2f", camera.Camera().position.y), 10, 70, 20, DARKGRAY);
-            DrawText(TextFormat("Z: %.2f", camera.Camera().position.z), 10, 100, 20, DARKGRAY);
-            DrawText(text.c_str(), 10, 120, 20, DARKGRAY);
-            DrawText((rC.hit?"Yes": "NO"), 10, 150, 20, DARKBLUE);
+            DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", camera.Camera().position.x, camera.Camera().position.y, camera.Camera().position.z), 10, 50, 20, DARKBROWN);
+            DrawText(text.c_str(), 10, 80, 20, DARKGRAY);
 
             // Selected Info
             if (selected != nullptr)
             {
-                DrawText("Selected", 10, 200, 20, DARKGREEN);
-                DrawText(TextFormat("X: %.2f", selected->Position().x), 10, 230, 20, DARKGREEN);
-                DrawText(TextFormat("Y: %.2f", selected->Position().y), 10, 280, 20, DARKGREEN);
-                DrawText(TextFormat("Z: %.2f", selected->Position().z), 10, 250, 20, DARKGREEN);
+                DrawText("Selected", 10, 110, 20, DARKGREEN);
+                DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", selected->Position().x, selected->Position().y, selected->Position().z), 10, 140, 20, DARKGREEN);
             }
-            DrawText(speedText.c_str(), SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 20, DARKGRAY);
-
+            DrawText(speedText.c_str(), SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 40, DARKGRAY);
 
         EndDrawing();
 

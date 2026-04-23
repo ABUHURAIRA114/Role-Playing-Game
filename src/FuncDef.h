@@ -1,5 +1,7 @@
 #include "Inputs.h"
 
+// Misc ==================================================================================================================================================================================
+
 float DotProduct(Vector3 a, Vector3 b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
@@ -14,6 +16,7 @@ Vector3 CrossProduct(Vector3 a, Vector3 b)
     return result;
 }
 
+// Box ==================================================================================================================================================================================
 
 void Box::UpdateRotation() {
     
@@ -38,6 +41,8 @@ void Box::UpdateBoundary() {
     boundary.max = Vector3Add(boundary.max, position);
 }
 
+// CameraMI ==================================================================================================================================================================================
+
 void CameraMI::CameraFreeMove(float dT)
 {
     pitch = Clamp(pitch + GetMouseDelta().y * sensitivity * dT, -90.0f, 90.0f);
@@ -54,4 +59,41 @@ void CameraMI::CameraFreeMove(float dT)
         camera.position.y + speed * dT * GetDirectionalInputV().y * -direction.y,
         camera.position.z + speed * dT * (GetDirectionalInputV().y * -direction.z + GetDirectionalInputV().x * CrossProduct(direction, camera.up).z)
     };
+}
+
+// Scene ==================================================================================================================================================================================
+
+void Scene::AddObject(Box* newObject) 
+{
+    Box** newObjects = new Box*[objectCount + 1];
+    for (int i = 0; i < objectCount; i++) {
+        newObjects[i] = objects[i];
+    }
+    newObjects[objectCount] = newObject;
+    delete[] objects;
+    objects = newObjects;
+    objectCount++;
+}
+
+void Scene::RemoveObject(int index) {
+    if (index < 0 || index >= objectCount) return;
+    Box** newObjects = new Box*[objectCount - 1];
+    for (int i = 0, j = 0; i < objectCount; i++) {
+        if (i != index) {
+            newObjects[j++] = objects[i];
+        }
+    }
+    delete[] objects;
+    objects = newObjects;
+    objectCount--;
+}
+
+int Scene::FindIndex(string name)
+{
+    for (int i = 0; i < objectCount; i++) {
+        if (objects[i]->Name() == name) {
+            return i;
+        }
+    }
+    return -1; // Not found
 }

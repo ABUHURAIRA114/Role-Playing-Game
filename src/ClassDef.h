@@ -35,14 +35,9 @@ class Box : public TransformMI
     public:
 
     Box(Vector3 position = {0, 0, 0}, float size = 1) : TransformMI(position, {0, 0, 0}, size)
-    {
-        model = LoadModelFromMesh(GenMeshCube(size, size, size));
-        UpdateBoundary();
-    }
+    { model = LoadModelFromMesh(GenMeshCube(size, size, size)); UpdateBoundary(); }
 
-    Model Model() {
-        return model;
-    }
+    Model Model() { return model; }
 
     BoundingBox Boundary() { return boundary; }
     void Position(Vector3 newPos) { position = newPos; UpdateBoundary(); }
@@ -70,59 +65,24 @@ class CameraMI
 
     CameraMI(Vector3 position = {0, 0, 0}, Vector3 target = {0, 0, 0}, Vector3 up = {0, 1, 0}) : camera({position, target, up, 90.0f, CAMERA_PERSPECTIVE}) {}
 
-    Camera3D Camera() {
-        return camera;
-    }
-
-    void Position(Vector3 newPos) {
-        camera.position = newPos;
-    }
-
-    void Target(Vector3 newTarget) {
-        camera.target = newTarget;
-    }
-
-    Vector3 Direction() {
-        return (Vector3){camera.target.x - camera.position.x, camera.target.y - camera.position.y, camera.target.z - camera.position.z};
-    }
-
+    Camera3D Camera() { return camera; }
+    void Position(Vector3 newPos) { camera.position = newPos; }
+    void Target(Vector3 newTarget) { camera.target = newTarget; }
+    Vector3 Direction() { return (Vector3){camera.target.x - camera.position.x, camera.target.y - camera.position.y, camera.target.z - camera.position.z}; }
     void CameraFreeMove(float dT);
 };
 
 struct Scene
 {
-    TransformMI **objects;
+    Box **objects;
     int objectCount;
     CameraMI sceneCamera;
 
     Scene() : objects(nullptr), objectCount(0), sceneCamera() {}
 
-    void AddObject(TransformMI* newObject) {
-        TransformMI** newObjects = new TransformMI*[objectCount + 1];
-        for (int i = 0; i < objectCount; i++) {
-            newObjects[i] = objects[i];
-        }
-        newObjects[objectCount] = newObject;
-        delete[] objects;
-        objects = newObjects;
-        objectCount++;
-    }
-
-    void RemoveObject(int index) {
-        if (index < 0 || index >= objectCount) return;
-        TransformMI** newObjects = new TransformMI*[objectCount - 1];
-        for (int i = 0, j = 0; i < objectCount; i++) {
-            if (i != index) {
-                newObjects[j++] = objects[i];
-            }
-        }
-        delete[] objects;
-        objects = newObjects;
-        objectCount--;
-    }
-
-    int FindIndex(string name)
-    {
-
-    }
+    void AddObject(Box* newObject);
+    void RemoveObject(int index);
+    Box** Objects() { return objects; }
+    int ObjectCount() { return objectCount; }   
+    int FindIndex(string name);
 };
