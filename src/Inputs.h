@@ -1,37 +1,18 @@
 #include "ClassDef.h"
 
-Vector2 GetDirectionalInputV() {
+Vector2 GetDirectionalInputV(int up, int down, int left, int right) {
     Vector2 input = {0.0f, 0.0f};
 
-    if (IsKeyDown(KEY_W)) {
+    if (IsKeyDown(up)) {
         input.y -= 1.0f; // Move up
     }
-    if (IsKeyDown(KEY_S)) {
+    if (IsKeyDown(down)) {
         input.y += 1.0f; // Move down
     }
-    if (IsKeyDown(KEY_A)) {
+    if (IsKeyDown(left)) {
         input.x -= 1.0f; // Move left
     }
-    if (IsKeyDown(KEY_D)) {
-        input.x += 1.0f; // Move right
-    }
-
-    return input;
-}
-
-Vector2 GetDirectionalInputV2() {
-    Vector2 input = {0.0f, 0.0f};
-
-    if (IsKeyDown(KEY_UP)) {
-        input.y -= 1.0f; // Move up
-    }
-    if (IsKeyDown(KEY_DOWN)) {
-        input.y += 1.0f; // Move down
-    }
-    if (IsKeyDown(KEY_LEFT)) {
-        input.x -= 1.0f; // Move left
-    }
-    if (IsKeyDown(KEY_RIGHT)) {
+    if (IsKeyDown(right)) {
         input.x += 1.0f; // Move right
     }
 

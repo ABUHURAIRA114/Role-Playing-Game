@@ -4,25 +4,22 @@ Scene scene;
 
 int main () {
 
-    CameraMI camera({ 0.0f, 10.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
-    camera.speed = 1.0f;
-    camera.sensitivity = 0.5f;
-    camera.Target({0, 0, 0});
-
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Role-Playing Game");
     SetTargetFPS(60);
     
-    scene.sceneCamera = camera;
+    scene.sceneCamera.speed = 1.0f;
+    scene.sceneCamera.sensitivity = 0.5f;
+
     scene.AddObject(new Box({0, 0, 0}, 1));
     scene.AddObject(new Box({2, 0, 2}, 1));
 
-    Ray tRay = {camera.Camera().position, {0, 0, 0}};
+    Ray tRay = {scene.sceneCamera.Camera().position, {0, 0, 0}};
     RayCollision rC = {false, 0, {0, 0, 0}, {0, 0, 0}};
+
     Box* selected = nullptr;
 
     string text = "0", speedText = "";
     float dT = GetFrameTime(), selectionSpeed = 1.0f;
-
 
     while (WindowShouldClose() == false){
    
@@ -37,12 +34,12 @@ int main () {
         {   
             text = "Camera Mode";
             
-            camera.CameraFreeMove(dT);
+            scene.sceneCamera.CameraFreeMove(dT);
             if (GetMouseWheelMoveV().y != 0)
             {
-                camera.speed += GetMouseWheelMoveV().y * 0.5f;
-                camera.speed = Clamp(camera.speed, 0.1f, MAX_SPEED);
-                speedText = to_string(camera.speed);
+                scene.sceneCamera.speed += GetMouseWheelMoveV().y * 0.5f;
+                scene.sceneCamera.speed = Clamp(scene.sceneCamera.speed, 0.1f, MAX_SPEED);
+                speedText = to_string(scene.sceneCamera.speed);
             }
         }
         else 
@@ -56,12 +53,12 @@ int main () {
             if (selected != nullptr)
             {
                 selected->Size(selected->Size() + GetInputODFrom(KEY_MINUS, KEY_EQUAL) * dT * selectionSpeed);
-                selected->Position({selected->Position().x + GetDirectionalInputV().x * dT * selectionSpeed, selected->Position().y  + GetInputODFrom(KEY_Q, KEY_E) * dT * selectionSpeed, selected->Position().z + GetDirectionalInputV().y * selectionSpeed * dT});
-                selected->Rotation({selected->Rotation().x + GetDirectionalInputV2().y * dT * selectionSpeed, selected->Rotation().y + GetDirectionalInputV2().x * dT * selectionSpeed, selected->Rotation().z});
+                selected->Position({selected->Position().x + GetDirectionalInputV(KEY_W, KEY_S, KEY_A, KEY_D).x * dT * selectionSpeed, selected->Position().y  + GetInputODFrom(KEY_Q, KEY_E) * dT * selectionSpeed, selected->Position().z + GetDirectionalInputV(KEY_W, KEY_S, KEY_A, KEY_D).y * selectionSpeed * dT});
+                selected->Rotation({selected->Rotation().x + GetDirectionalInputV(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT).y * dT * selectionSpeed, selected->Rotation().y + GetDirectionalInputV(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT).x * dT * selectionSpeed, selected->Rotation().z});
             }
         }
 
-        tRay = GetScreenToWorldRay(GetMousePosition(), camera.Camera());
+        tRay = GetScreenToWorldRay(GetMousePosition(), scene.sceneCamera.Camera());
         if (IsKeyPressed(SELECTION_KEY))
         {
             selected = nullptr;
@@ -77,7 +74,7 @@ int main () {
         }
 
         BeginDrawing();
-        BeginMode3D(camera.Camera());
+        BeginMode3D(scene.sceneCamera.Camera());
 
             ClearBackground(RAYWHITE);
 
@@ -92,7 +89,7 @@ int main () {
         EndMode3D();
 
             DrawText("Camera", 10, 20, 20, DARKGREEN);
-            DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", camera.Camera().position.x, camera.Camera().position.y, camera.Camera().position.z), 10, 50, 20, DARKBROWN);
+            DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", scene.sceneCamera.Camera().position.x, scene.sceneCamera.Camera().position.y, scene.sceneCamera.Camera().position.z), 10, 50, 20, DARKBROWN);
             DrawText(text.c_str(), 10, 80, 20, DARKGRAY);
 
             // Selected Info
