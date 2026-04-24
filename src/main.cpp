@@ -12,20 +12,21 @@ int main () {
 
     scene.AddObject(new Box("Box 1", {0, 0, 0}, 1, GRAY));
     scene.AddObject(new Box("Box 2", {2, 0, 2}, 1, RED));
-
-    string text = "0", speedText = "";
+    scene.AddUIObject(new Button("Button 1", "Click To Add Box", {SCREEN_WIDTH - 110, 30}, {100, 60}, DARKBLUE));
+    scene.AddUIObject(new Text("Text 1", "TEXT!", {10, 150}, {200, 40}, BLACK));
+    string text = "0", speedText = "", buttonText = "";
     float dT = GetFrameTime();
 
     while (WindowShouldClose() == false){
    
         dT = GetFrameTime();
 
-        if (IsKeyPressed(FREE_CAMERA_KEY)) DisableCursor(); 
-        else if (IsKeyReleased(FREE_CAMERA_KEY)) EnableCursor(); 
+        if (IsMouseButtonPressed(FREE_CAMERA_KEY)) DisableCursor(); 
+        else if (IsMouseButtonReleased(FREE_CAMERA_KEY)) EnableCursor(); 
         
         speedText = "";
         text = "Camera Off";
-        if (IsKeyDown(FREE_CAMERA_KEY))
+        if (IsMouseButtonDown(FREE_CAMERA_KEY))
         {   
             text = "Camera Mode";
             
@@ -38,9 +39,13 @@ int main () {
             scene.SelectionMove(dT);
         }
 
-        if (IsKeyPressed(SELECTION_KEY))
+        if (IsMouseButtonDown(SELECTION_KEY))
             scene.SelectObject(GetScreenToWorldRay(GetMousePosition(), scene.sceneCamera.Camera()));
         
+        Button* button = dynamic_cast<Button*>(scene.ui[0]);
+        if (button)
+            if (button->IsClicked())
+                scene.AddObject(new Box());
 
         BeginDrawing();
         BeginMode3D(scene.sceneCamera.Camera());
@@ -65,6 +70,8 @@ int main () {
             }
 
             DrawText(speedText.c_str(), SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 40, DARKGRAY);
+            
+            scene.DrawSceneUI();
 
         EndDrawing();
 

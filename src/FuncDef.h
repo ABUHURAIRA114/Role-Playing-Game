@@ -2,6 +2,11 @@
 
 // Misc ==================================================================================================================================================================================
 
+bool IsBetween(float n, float l, float b)
+{
+    return n>=l && n<=b;
+}
+
 Vector3 Normalize(Vector3 v)
 {
     float length = sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
@@ -102,6 +107,18 @@ void Scene::AddObject(Box* newObject)
     objectCount++;
 }
 
+void Scene::AddUIObject(RectTransform* newObject)
+{
+    RectTransform** newObjects = new RectTransform*[uiCount + 1];
+    for (int i = 0; i < uiCount; i++) {
+        newObjects[i] = ui[i];
+    }
+    newObjects[uiCount] = newObject;
+    delete[] ui;
+    ui = newObjects;
+    uiCount++;    
+}
+
 void Scene::RemoveObject(int index) {
     if (index < 0 || index >= objectCount) return;
     Box** newObjects = new Box*[objectCount - 1];
@@ -115,7 +132,20 @@ void Scene::RemoveObject(int index) {
     objectCount--;
 }
 
-int Scene::FindIndex(string name)
+void Scene::RemoveUIObject(int index) {
+    if (index < 0 || index >= uiCount) return;
+    RectTransform** newObjects = new RectTransform*[uiCount - 1];
+    for (int i = 0, j = 0; i < uiCount; i++) {
+        if (i != index) {
+            newObjects[j++] = ui[i];
+        }
+    }
+    delete[] ui;
+    ui = newObjects;
+    uiCount--;
+}
+
+int Scene::FindObjectIndex(string name)
 {
     for (int i = 0; i < objectCount; i++) {
         if (objects[i]->Name() == name) {
@@ -168,6 +198,26 @@ void Scene::DrawScene()
     }
 }
 
+void Scene::DrawSceneUI()
+{
+    for (int i = 0; i< uiCount; i++)
+    {
+        RectTransform* uiElement = ui[i];
+        Button* button = dynamic_cast<Button*>(uiElement);
+        Text* text = dynamic_cast<Text*>(uiElement);
+
+        if (button != nullptr)
+        {
+            DrawRectangleRec(button->Rect(), button->BackColor());
+            DrawText(button->_Text()._Text().c_str(), button->Rect().x + button->_Text().Rect().x, button->Rect().y + button->_Text().Rect().y, button->_Text().Rect().width, WHITE);
+        }
+        else if (text != nullptr)
+        {
+            DrawText(text->_Text().c_str(), text->Rect().x, text->Rect().y, 20, text->_Color());
+        }
+    }
+}
+
 void Scene::SelectObject(Ray ray)
 {
     selectionRay = ray;
@@ -183,11 +233,22 @@ void Scene::SelectObject(Ray ray)
     } 
 }
 
+// Button ==================================================================================================================================================================================
 
+bool Button::IsHovering()
+{
+    Vector2 mousePosition = GetMousePosition();
+    return IsBetween(mousePosition.x, rect.x, rect.x+rect.width) && IsBetween(mousePosition.y, rect.y, rect.y+rect.height); 
+}
 
+bool Button::IsClicked()
+{
+    if (!IsHovering()) return false;
 
+    if (!IsMouseButtonPressed(SELECTION_KEY)) return false;
 
-
+    return true;
+}
 
 
 

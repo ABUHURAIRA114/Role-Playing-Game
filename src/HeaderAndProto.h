@@ -9,8 +9,8 @@ const int SCREEN_HEIGHT = 1080;
 const int MAX_SPEED = 20;
 const int WHEEL_SENSITIVITY = 1.0f;
 
-const int FREE_CAMERA_KEY = KEY_LEFT_CONTROL;
-const int SELECTION_KEY = KEY_LEFT_ALT;
+const int FREE_CAMERA_KEY = MOUSE_BUTTON_RIGHT;
+const int SELECTION_KEY = MOUSE_BUTTON_LEFT;
 const int FORWARD_KEY = KEY_W;
 const int BACKWARD_KEY = KEY_S;
 const int LEFT_KEY = KEY_A;
@@ -20,3 +20,6 @@ class TransformMI;
 class Box;
 class Camera_;
 class Scene;
+class Text;
+class RectTransform;
+class Button;

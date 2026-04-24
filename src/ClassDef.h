@@ -12,6 +12,7 @@ class TransformMI
     public:
 
     TransformMI(string name = "Transform Object", Vector3 position = {0, 0, 0}, Vector3 rotation = {0, 0, 0}, float size = 1) : name(name), position(position), rotation(rotation), size(size) {}
+    virtual ~TransformMI() {}
 
     virtual string Name() { return name; }
     virtual Vector3 Position() { return position; }
@@ -85,16 +86,116 @@ struct Scene
     Ray selectionRay;
     RayCollision selectionRayCollision;
 
+    RectTransform **ui;
+    int uiCount;
+
     Scene() : objects(nullptr), objectCount(0), sceneCamera() {}
 
     void AddObject(Box* newObject);
+    void AddUIObject(RectTransform* newObject);
     void RemoveObject(int index);
-    Box** Objects() { return objects; }
-    int ObjectCount() { return objectCount; }   
-    int FindIndex(string name);
+    void RemoveUIObject(int index);   
+    int FindObjectIndex(string name);
+    int FindUIObjectIndex(string name);
 
     void SelectionMove(float dT);
     void SpeedScroll();
     void DrawScene();
+    void DrawSceneUI();
     void SelectObject(Ray ray);
 };
+
+class RectTransform
+{
+    protected:
+    
+    string name;
+    Rectangle rect;
+
+    public: 
+    RectTransform (string name = "Rect Object", Vector2 position = {0,0}, Vector2 dimension= {1, 1}) : name(name), rect({position.x, position.y, dimension.x, dimension.y}) {}
+    virtual ~RectTransform() {}
+
+    virtual string Name() { return name; }
+    virtual Rectangle Rect() { return rect; }
+    
+    virtual void Name(string name) { this->name = name; }
+    virtual void Rect(Rectangle rect) { this->rect = rect; }
+};
+
+class Text : public RectTransform
+{
+    string text;
+    Color color;
+
+    public:
+    Text(string name = "Text Object", string text = "Text", Vector2 position = {0, 0}, Vector2 dimension = {0, 0}, Color color = BLACK) : RectTransform(name, position, dimension), text(text), color(color) {}
+
+    Color _Color() { return color; }
+    void _Color(Color newColor) { color = newColor; }   
+    string _Text() { return text; }
+    void _Text(string newText) { text = newText; }
+
+    string Name() { return name; }
+    Rectangle Rect() { return rect; }
+    
+    void Name(string name) { this->name = name; }
+    void Rect(Rectangle rect) { this->rect = rect; }
+};
+
+class Button : public RectTransform
+{
+    Text text;
+    Color backColor;
+
+    public:
+    Button(string name = "Button Object", string text = "Text", Vector2 position = {0, 0}, Vector2 dimension = {0, 0}, Color color = BLACK) : RectTransform(name, position, dimension), text(name, text, {10, 10}, {10, 0}), backColor(color) {}
+
+    Color BackColor() { return backColor; }
+    void BackColor(Color newColor) { backColor = newColor; }
+    Text _Text() { return text; }
+    void _Text(Text newText) { text = newText; }
+
+    bool IsHovering();
+    bool IsClicked();
+
+    string Name() { return name; }
+    Rectangle Rect() { return rect; }
+    
+    void Name(string name) { this->name = name; }
+    void Rect(Rectangle rect) { this->rect = rect; }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
