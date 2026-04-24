@@ -95,8 +95,17 @@ void CameraMI::SpeedScroll()
 
 // Scene ==================================================================================================================================================================================
 
-void Scene::AddObject(Box* newObject) 
+void Scene::AddObject(Box* newObject, int i=0) 
 {
+    string name = newObject->Name();
+    if (i>0) name = newObject->Name()+to_string(i);
+    if (FindObjectIndex(name) != -1) 
+    {
+        AddObject(newObject, i+1); // try with new name
+        return;
+    } 
+    newObject->Name(name);
+
     Box** newObjects = new Box*[objectCount + 1];
     for (int i = 0; i < objectCount; i++) {
         newObjects[i] = objects[i];
@@ -107,8 +116,17 @@ void Scene::AddObject(Box* newObject)
     objectCount++;
 }
 
-void Scene::AddUIObject(RectTransform* newObject)
+void Scene::AddUIObject(RectTransform* newObject, int i=0)
 {
+    string name = newObject->Name();
+    if (i>0) name = newObject->Name()+to_string(i);
+    if (FindUIObjectIndex(name) != -1) 
+    {
+        AddUIObject(newObject, i+1); // try with new name
+        return;
+    } 
+    newObject->Name(name);
+
     RectTransform** newObjects = new RectTransform*[uiCount + 1];
     for (int i = 0; i < uiCount; i++) {
         newObjects[i] = ui[i];
@@ -155,6 +173,16 @@ int Scene::FindObjectIndex(string name)
     return -1; // Not found
 }
 
+int Scene::FindUIObjectIndex(string name)
+{
+    for (int i = 0; i < uiCount; i++) {
+        if (ui[i]->Name() == name) {
+            return i;
+        }
+    }
+    return -1; // Not found
+}
+
 void Scene::SelectionMove(float dT)
 {
     if (selected != nullptr)
@@ -194,7 +222,7 @@ void Scene::DrawScene()
     for (int i = 0; i < objectCount; i++)
     {
         Box* box = objects[i];
-        DrawModel(box->Model(), box->Position(), box->Size(), box->_Color());
+        DrawModel(box->Model(), box->Position(), box->Size(), WHITE);
     }
 }
 
@@ -235,10 +263,29 @@ void Scene::SelectObject(Ray ray)
 
 void Scene::UnloadThings()
 {
-    for (int i = 0; i<objectCount; i++)
+    for (auto model : models) 
     {
-        UnloadModel(objects[i]->Model());
-        UnloadTexture(objects[i]->Model().materials[0].maps[MATERIAL_MAP_ALBEDO].texture);
+        UnloadModel(model.second);
+    }
+    for (auto tex : textures) 
+    {
+        UnloadTexture(tex.second);
+    }
+}
+
+void Scene::ObjectSpawn()
+{
+    for (int i = 0; i<uiCount; i++)
+    {
+        if (ui[i]->Name().find("Spawner") != std::string::npos)
+        {
+            Button* button = dynamic_cast<Button*>(ui[i]);
+
+            if (!button) continue;
+            if (!button->IsClicked()) continue;
+            cout<<"Spawning "<<button->_Text()._Text()<<endl;
+            AddObject(new Box("Gameobject", {0,0,0}, 1, models[button->_Text()._Text()], textures[button->_Text()._Text()]));
+        }
     }
 }
 

@@ -29,33 +29,30 @@ class Box : public TransformMI
 {
     Model model;
     BoundingBox boundary;
-    Color color;
     void UpdateRotation();
     void UpdateBoundary();
 
     public:
 
-    Box(string name = "Box Object", Vector3 position = {0, 0, 0}, float size = 1, Color color = DARKBLUE, Model model = LoadModelFromMesh(GenMeshCube(10, 10, 10)), Texture albedo = LoadTextureFromImage(GenImageColor(100, 100, PINK))) : TransformMI(name, position, {0, 0, 0}, size), color(color),
+    Box(string name = "Box Object", Vector3 position = {0, 0, 0}, float size = 1, Model model = LoadModelFromMesh(GenMeshCube(1, 1, 1)), Texture albedo = LoadTextureFromImage(GenImageColor(100, 100, DARKPURPLE))) : TransformMI(name, position, {0, 0, 0}, size),
     model(model)
     { 
-        model.materials[0].maps[MATERIAL_MAP_ALBEDO].texture = albedo;
+        model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = albedo;
         UpdateBoundary(); 
     }
 
     Model Model() { return model; }
-
+ 
     BoundingBox Boundary() { return boundary; }
     void Position(Vector3 newPos) { position = newPos; UpdateBoundary(); }
     void Rotation(Vector3 newRotation) { rotation = newRotation; UpdateRotation(); }
     void Size(float newSize) { size = newSize; UpdateBoundary(); }
-    void Name(string name) { this->name = name; }
-    void _Color(Color newColor) { color = newColor; }    
+    void Name(string name) { this->name = name; } 
 
     Vector3 Position() { return position; }
     Vector3 Rotation() { return rotation; }
     float Size() { return size; }
     string Name() { return name; }
-    Color _Color() { return color; }
 };
 
 class CameraMI
@@ -89,18 +86,21 @@ struct Scene
     float selectionSpeed = 2.0f;
     Ray selectionRay;
     RayCollision selectionRayCollision;
+    map<string, Model> models;
+    map<string, Texture2D> textures;
 
     RectTransform **ui;
     int uiCount;
 
     Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), sceneCamera() {}
     ~Scene();
-    void AddObject(Box* newObject);
-    void AddUIObject(RectTransform* newObject);
+    void AddObject(Box* newObject, int);
+    void AddUIObject(RectTransform* newObject, int);
     void RemoveObject(int index);
     void RemoveUIObject(int index);   
     int FindObjectIndex(string name);
     int FindUIObjectIndex(string name);
+    void ObjectSpawn();
 
     void SelectionMove(float dT);
     void SpeedScroll();

@@ -10,19 +10,30 @@ int main () {
     scene.sceneCamera.speed = 1.0f;
     scene.sceneCamera.sensitivity = 0.5f;
 
-    scene.AddObject(new Box("Box 1", {0, 0, 0}, 1, GRAY));
-    scene.AddObject(new Box("Box 2", {2, 0, 2}, 1, RED));
+    scene.AddObject(new Box("Box 1", {0, 0, 0}, 1));
+    scene.AddObject(new Box("Box 2", {2, 0, 2}, 1));
     scene.AddUIObject(new Button("Button 1", "Click To Add Box", {SCREEN_WIDTH - 200, 30}, {200, 60}, 20, DARKBLUE));
  
-    UIGrid grid({SCREEN_WIDTH/2-150, 30}, 30);
+    UIGrid grid({SCREEN_WIDTH-300, 100}, 45);
     
     FilePathList files = LoadDirectoryFiles(MODELS_FOLDER_PATH.c_str());
-    for (int i = 0; i<files.count; i++)
+    for (int i = 0; i<(int)files.count; i++)
     {
         if (IsFileExtension(files.paths[i], ".obj") || IsFileExtension(files.paths[i], ".gltf"))
         {
-            scene.AddUIObject(new Button("Button"+to_string(i), files.paths[i], {0,0}, {300, 40}, 20, DARKBLUE));
-            grid.AddElement(scene.ui[scene.uiCount-1]);
+            try
+            {
+                string name = GetFileNameWithoutExt(files.paths[i]);
+                scene.models[name] = LoadModel(files.paths[i]);
+                scene.textures[name] = LoadTexture((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str());
+                
+                scene.AddUIObject(new Button("Spawner"+to_string(i), name, {0,0}, {300, 40}, 20, DARKGRAY));
+                grid.AddElement(scene.ui[scene.uiCount-1]);
+            }
+            catch(...)
+            {
+                cout<<"MASLA!!!\n";
+            }
         }
     }
     grid.OrderUI(VERTICAL);
@@ -60,6 +71,7 @@ int main () {
         
         Button* button = dynamic_cast<Button*>(scene.ui[0]);
         if (button) if (button->IsClicked()) scene.AddObject(new Box());
+        scene.ObjectSpawn();
 
         BeginDrawing();
         BeginMode3D(scene.sceneCamera.Camera());
@@ -92,6 +104,5 @@ int main () {
     }
 
     scene.UnloadThings();
-
     CloseWindow();
 }
