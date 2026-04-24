@@ -2,6 +2,19 @@
 
 // Misc ==================================================================================================================================================================================
 
+string StripWhiteSpaces(std::string str) 
+{
+    string newString = str;
+
+    int startPos = 0;
+    while((startPos = newString.find(" ", startPos)) != std::string::npos) {
+        newString.replace(startPos, 1, "");
+        startPos ++;
+    }
+
+    return newString;
+}
+
 bool IsBetween(float n, float l, float b)
 {
     return n>=l && n<=b;
@@ -36,6 +49,20 @@ Vector3 CrossProduct(Vector3 a, Vector3 b)
     result.y = a.z * b.x - a.x * b.z;
     result.z = a.x * b.y - a.y * b.x;
     return result;
+}
+
+// GlobalInfo ==================================================================================================================================================================================
+
+void GlobalInfo::UnloadThings()
+{
+    for (auto model : models) 
+    {
+        UnloadModel(model.second);
+    }
+    for (auto tex : textures) 
+    {
+        UnloadTexture(tex.second);
+    }
 }
 
 // Box ==================================================================================================================================================================================
@@ -75,7 +102,7 @@ void CameraMI::CameraFreeMove(float dT)
     camera.target = target;
 
     direction = target-camera.position;  
-    Vector2 input = GetDirectionalInputV(FORWARD_KEY, BACKWARD_KEY, LEFT_KEY, RIGHT_KEY);
+    Vector2 input = GetDirectionalInputV(gI.FORWARD_KEY, gI.BACKWARD_KEY, gI.LEFT_KEY, gI.RIGHT_KEY);
 
     camera.position = (Vector3){
         camera.position.x + speed * dT * (input.y* -direction.x  + input.x * CrossProduct(direction, camera.up).x),
@@ -88,8 +115,8 @@ void CameraMI::SpeedScroll()
 {
     if (GetMouseWheelMoveV().y != 0)
     {
-        speed += GetMouseWheelMoveV().y * WHEEL_SENSITIVITY;
-        speed = Clamp(speed, 0.1f, MAX_SPEED);
+        speed += GetMouseWheelMoveV().y * gI.WHEEL_SENSITIVITY;
+        speed = Clamp(speed, 0.1f, gI.MAX_SPEED);
     }
 }
 
@@ -97,7 +124,8 @@ void CameraMI::SpeedScroll()
 
 void Scene::AddObject(Box* newObject, int i=0) 
 {
-    string name = newObject->Name();
+    string name = StripWhiteSpaces(newObject->Name());
+
     if (i>0) name = newObject->Name()+to_string(i);
     if (FindObjectIndex(name) != -1) 
     {
@@ -118,7 +146,7 @@ void Scene::AddObject(Box* newObject, int i=0)
 
 void Scene::AddUIObject(RectTransform* newObject, int i=0)
 {
-    string name = newObject->Name();
+    string name = StripWhiteSpaces(newObject->Name());
     if (i>0) name = newObject->Name()+to_string(i);
     if (FindUIObjectIndex(name) != -1) 
     {
@@ -187,7 +215,7 @@ void Scene::SelectionMove(float dT)
 {
     if (selected != nullptr)
     {
-        Vector2 moveInput = GetDirectionalInputV(FORWARD_KEY, BACKWARD_KEY, LEFT_KEY, RIGHT_KEY);
+        Vector2 moveInput = GetDirectionalInputV(gI.FORWARD_KEY, gI.BACKWARD_KEY, gI.LEFT_KEY, gI.RIGHT_KEY);
         Vector2 rotationInput = GetDirectionalInputV(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT);
         float sizeInput = GetInputODFrom(KEY_MINUS, KEY_EQUAL);
         float heightInput = GetInputODFrom(KEY_Q, KEY_E);
@@ -212,8 +240,8 @@ void Scene::SpeedScroll()
 {
     if (GetMouseWheelMoveV().y != 0)
     {
-        selectionSpeed += GetMouseWheelMoveV().y * WHEEL_SENSITIVITY;
-        selectionSpeed = Clamp(selectionSpeed, 0.1f, MAX_SPEED);
+        selectionSpeed += GetMouseWheelMoveV().y * gI.WHEEL_SENSITIVITY;
+        selectionSpeed = Clamp(selectionSpeed, 0.1f, gI.MAX_SPEED);
     }
 }   
 
@@ -261,18 +289,6 @@ void Scene::SelectObject(Ray ray)
     } 
 }
 
-void Scene::UnloadThings()
-{
-    for (auto model : models) 
-    {
-        UnloadModel(model.second);
-    }
-    for (auto tex : textures) 
-    {
-        UnloadTexture(tex.second);
-    }
-}
-
 void Scene::ObjectSpawn()
 {
     for (int i = 0; i<uiCount; i++)
@@ -284,7 +300,7 @@ void Scene::ObjectSpawn()
             if (!button) continue;
             if (!button->IsClicked()) continue;
             cout<<"Spawning "<<button->_Text()._Text()<<endl;
-            AddObject(new Box("Gameobject", {0,0,0}, 1, models[button->_Text()._Text()], textures[button->_Text()._Text()]));
+            AddObject(new Box("Gameobject", {0,0,0}, {0,0,0}, 1, button->_Text()._Text()));
         }
     }
 }
@@ -312,7 +328,7 @@ bool Button::IsClicked()
 {
     if (!IsHovering()) return false;
 
-    if (!IsMouseButtonPressed(SELECTION_KEY)) return false;
+    if (!IsMouseButtonPressed(gI.SELECTION_KEY)) return false;
 
     return true;
 }
@@ -380,9 +396,52 @@ UIGrid::~UIGrid()
     delete[] elements;
 }
 
+// SaveSystem ==================================================================================================================================================================================
+// <NAME> <ASSET_NAME> <POS_X> <POS_Y> <POS_Z> <ROT_X> <ROT_Y> <ROT_Z> <SCALE>
 
+void SaveSystem::SaveScene(Scene& scene)
+{   
+    ofstream file(saveFilePath, ios::out);
 
+    if (file.is_open())
+    {
+        for (int i = 0; i<scene.objectCount; i++)
+        {
+            Box obj = *scene.objects[i];
+            file<<obj.Name()<<" "<<(obj.AssetName()==""?gI.DEFAULT_MODEL_NAME:obj.AssetName())<<" "
+            <<obj.Position().x<<" "<<obj.Position().y<<" "<<obj.Position().z<<" "
+            <<obj.Rotation().x<<" "<<obj.Rotation().y<<" "<<obj.Rotation().z<<" "
+            <<obj.Size()<<" EL";
+            if (i<scene.objectCount-1) file<<endl;
+        }
+    }
+}
 
+void SaveSystem::LoadScene(Scene& scene)
+{   
+    ifstream file(saveFilePath, ios::in);
+
+    if (file.is_open())
+    {
+        while(!file.eof())
+        {
+            string name, assetName;
+            Vector3 position;
+            Vector3 rotation;
+            float scale;
+            file>>name;
+            // cout<<name;
+            if (name == "") return;
+            file>>assetName>>position.x>>position.y>>position.z>>rotation.x>>rotation.y>>rotation.z>>scale;
+            cout<<name<<" "<<assetName<<" "
+            <<position.x<<" "<<position.y<<" "<<position.z<<" "
+            <<rotation.x<<" "<<rotation.y<<" "<<rotation.z<<" "<<scale<<endl;
+            scene.AddObject(new Box(name, position, rotation, scale, assetName));
+            string line;
+            getline(file, line);
+        }
+    }
+}
 
 
 

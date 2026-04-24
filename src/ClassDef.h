@@ -1,4 +1,32 @@
 #include "HeaderAndProto.h"
+#define gI GlobalInfo::instance
+
+struct GlobalInfo
+{
+    const int SCREEN_WIDTH = 1920;
+    const int SCREEN_HEIGHT = 1080;
+    const int MAX_SPEED = 20;
+    const int WHEEL_SENSITIVITY = 1.0f;
+
+    const int FREE_CAMERA_KEY = MOUSE_BUTTON_RIGHT;
+    const int SELECTION_KEY = MOUSE_BUTTON_LEFT;
+    const int FORWARD_KEY = KEY_W;
+    const int BACKWARD_KEY = KEY_S;
+    const int LEFT_KEY = KEY_A;
+    const int RIGHT_KEY = KEY_D;
+    const string MODELS_FOLDER_PATH = "./assets/models"; 
+    const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
+    const string DEFAULT_MODEL_NAME = "DEF_MOD";
+    static GlobalInfo instance;
+    
+    map<string, Model> models;
+    map<string, Texture2D> textures;
+    // Scene scene;
+
+    void UnloadThings();
+    private:
+    GlobalInfo() {} 
+};
 
 class TransformMI
 {
@@ -28,17 +56,28 @@ class TransformMI
 class Box : public TransformMI
 {
     Model model;
+    string assetName;
     BoundingBox boundary;
     void UpdateRotation();
     void UpdateBoundary();
 
     public:
 
-    Box(string name = "Box Object", Vector3 position = {0, 0, 0}, float size = 1, Model model = LoadModelFromMesh(GenMeshCube(1, 1, 1)), Texture albedo = LoadTextureFromImage(GenImageColor(100, 100, DARKPURPLE))) : TransformMI(name, position, {0, 0, 0}, size),
-    model(model)
+    Box(string name = "BoxObject", Vector3 position = {0, 0, 0}, Vector3 rotation = {0,0,0}, float size = 1, string assetName = gI.DEFAULT_MODEL_NAME) : TransformMI(name, position, rotation, size),
+    assetName(assetName)
     { 
-        model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = albedo;
+        if (assetName!=gI.DEFAULT_MODEL_NAME)
+        {
+            model = GlobalInfo::instance.models[assetName];
+            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = GlobalInfo::instance.textures[assetName];
+        }
+        else 
+        {
+            model = LoadModelFromMesh(GenMeshCube(10, 10, 10));
+            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, DARKPURPLE, WHITE));   
+        }
         UpdateBoundary(); 
+        UpdateRotation();
     }
 
     Model Model() { return model; }
@@ -48,11 +87,12 @@ class Box : public TransformMI
     void Rotation(Vector3 newRotation) { rotation = newRotation; UpdateRotation(); }
     void Size(float newSize) { size = newSize; UpdateBoundary(); }
     void Name(string name) { this->name = name; } 
-
+    
     Vector3 Position() { return position; }
     Vector3 Rotation() { return rotation; }
     float Size() { return size; }
     string Name() { return name; }
+    string AssetName() { return assetName; }
 };
 
 class CameraMI
@@ -86,8 +126,7 @@ struct Scene
     float selectionSpeed = 2.0f;
     Ray selectionRay;
     RayCollision selectionRayCollision;
-    map<string, Model> models;
-    map<string, Texture2D> textures;
+
 
     RectTransform **ui;
     int uiCount;
@@ -107,7 +146,6 @@ struct Scene
     void DrawScene();
     void DrawSceneUI();
     void SelectObject(Ray ray);
-    void UnloadThings();
 };
 
 class RectTransform
@@ -186,7 +224,15 @@ struct UIGrid
     ~UIGrid();
 };
 
+class SaveSystem
+{
+    string saveFilePath;
+    public:
+    SaveSystem(string path) : saveFilePath(path) {}
 
+    void SaveScene(Scene& scene);
+    void LoadScene(Scene& scene);
+};
 
 
 
