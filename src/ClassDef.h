@@ -35,8 +35,12 @@ class Box : public TransformMI
 
     public:
 
-    Box(string name = "Box Object", Vector3 position = {0, 0, 0}, float size = 1, Color color = DARKBLUE) : TransformMI(name, position, {0, 0, 0}, size), color(color)
-    { model = LoadModelFromMesh(GenMeshCube(size, size, size)); UpdateBoundary(); }
+    Box(string name = "Box Object", Vector3 position = {0, 0, 0}, float size = 1, Color color = DARKBLUE, Model model = LoadModelFromMesh(GenMeshCube(10, 10, 10)), Texture albedo = LoadTextureFromImage(GenImageColor(100, 100, PINK))) : TransformMI(name, position, {0, 0, 0}, size), color(color),
+    model(model)
+    { 
+        model.materials[0].maps[MATERIAL_MAP_ALBEDO].texture = albedo;
+        UpdateBoundary(); 
+    }
 
     Model Model() { return model; }
 
@@ -89,8 +93,8 @@ struct Scene
     RectTransform **ui;
     int uiCount;
 
-    Scene() : objects(nullptr), objectCount(0), sceneCamera() {}
-
+    Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), sceneCamera() {}
+    ~Scene();
     void AddObject(Box* newObject);
     void AddUIObject(RectTransform* newObject);
     void RemoveObject(int index);
@@ -103,6 +107,7 @@ struct Scene
     void DrawScene();
     void DrawSceneUI();
     void SelectObject(Ray ray);
+    void UnloadThings();
 };
 
 class RectTransform
@@ -149,7 +154,7 @@ class Button : public RectTransform
     Color backColor;
 
     public:
-    Button(string name = "Button Object", string text = "Text", Vector2 position = {0, 0}, Vector2 dimension = {0, 0}, Color color = BLACK) : RectTransform(name, position, dimension), text(name, text, {10, 10}, {10, 0}), backColor(color) {}
+    Button(string name = "Button Object", string text = "Text", Vector2 position = {0, 0}, Vector2 dimension = {0, 0}, float textSize = 10, Color color = BLACK) : RectTransform(name, position, dimension), text(name, text, {10, 10}, {textSize, 0}), backColor(color) {}
 
     Color BackColor() { return backColor; }
     void BackColor(Color newColor) { backColor = newColor; }
@@ -166,7 +171,20 @@ class Button : public RectTransform
     void Rect(Rectangle rect) { this->rect = rect; }
 };
 
+enum GridType { HORIZONTAL, VERTICAL };
+struct UIGrid
+{
+    RectTransform **elements;
+    Vector2 position;
+    float gridGap;
+    int elementCount;
 
+    UIGrid(Vector2 position = {0,0}, float gridGap=0) : position(position), gridGap(gridGap), elements(nullptr), elementCount(0) {}
+    void AddElement(RectTransform* newObject);
+    void RemoveElement(int index);   
+    void OrderUI(int gridType);
+    ~UIGrid();
+};
 
 
 

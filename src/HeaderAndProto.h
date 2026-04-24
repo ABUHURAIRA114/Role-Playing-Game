@@ -15,6 +15,8 @@ const int FORWARD_KEY = KEY_W;
 const int BACKWARD_KEY = KEY_S;
 const int LEFT_KEY = KEY_A;
 const int RIGHT_KEY = KEY_D;
+const string MODELS_FOLDER_PATH = "./assets/models"; 
+const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
 
 class TransformMI;
 class Box;
@@ -23,3 +25,4 @@ class Scene;
 class Text;
 class RectTransform;
 class Button;
+class UIGrid;

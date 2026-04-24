@@ -12,8 +12,24 @@ int main () {
 
     scene.AddObject(new Box("Box 1", {0, 0, 0}, 1, GRAY));
     scene.AddObject(new Box("Box 2", {2, 0, 2}, 1, RED));
-    scene.AddUIObject(new Button("Button 1", "Click To Add Box", {SCREEN_WIDTH - 110, 30}, {100, 60}, DARKBLUE));
-    scene.AddUIObject(new Text("Text 1", "TEXT!", {10, 150}, {200, 40}, BLACK));
+    scene.AddUIObject(new Button("Button 1", "Click To Add Box", {SCREEN_WIDTH - 200, 30}, {200, 60}, 20, DARKBLUE));
+ 
+    UIGrid grid({SCREEN_WIDTH/2-150, 30}, 30);
+    
+    FilePathList files = LoadDirectoryFiles(MODELS_FOLDER_PATH.c_str());
+    for (int i = 0; i<files.count; i++)
+    {
+        if (IsFileExtension(files.paths[i], ".obj") || IsFileExtension(files.paths[i], ".gltf"))
+        {
+            scene.AddUIObject(new Button("Button"+to_string(i), files.paths[i], {0,0}, {300, 40}, 20, DARKBLUE));
+            grid.AddElement(scene.ui[scene.uiCount-1]);
+        }
+    }
+    grid.OrderUI(VERTICAL);
+
+    UnloadDirectoryFiles(files);
+
+    // model.materials[0].maps[MATERIAL_MAP_ALBEDO].texture = texture;
     string text = "0", speedText = "", buttonText = "";
     float dT = GetFrameTime();
 
@@ -43,9 +59,7 @@ int main () {
             scene.SelectObject(GetScreenToWorldRay(GetMousePosition(), scene.sceneCamera.Camera()));
         
         Button* button = dynamic_cast<Button*>(scene.ui[0]);
-        if (button)
-            if (button->IsClicked())
-                scene.AddObject(new Box());
+        if (button) if (button->IsClicked()) scene.AddObject(new Box());
 
         BeginDrawing();
         BeginMode3D(scene.sceneCamera.Camera());
@@ -76,6 +90,8 @@ int main () {
         EndDrawing();
 
     }
+
+    scene.UnloadThings();
 
     CloseWindow();
 }

@@ -233,6 +233,26 @@ void Scene::SelectObject(Ray ray)
     } 
 }
 
+void Scene::UnloadThings()
+{
+    for (int i = 0; i<objectCount; i++)
+    {
+        UnloadModel(objects[i]->Model());
+        UnloadTexture(objects[i]->Model().materials[0].maps[MATERIAL_MAP_ALBEDO].texture);
+    }
+}
+
+Scene::~Scene()
+{
+    for (int i = 0; i<objectCount; i++)
+        delete objects[i];
+    delete[] objects;
+
+    for (int i = 0; i<uiCount; i++)
+        delete ui[i];
+    delete[] ui;
+}
+
 // Button ==================================================================================================================================================================================
 
 bool Button::IsHovering()
@@ -249,6 +269,106 @@ bool Button::IsClicked()
 
     return true;
 }
+
+// UIGRID ==================================================================================================================================================================================
+
+void UIGrid::AddElement(RectTransform* newObject)
+{
+    cout<<newObject->Name()<<" "<<elementCount <<endl;
+    RectTransform** newObjects = new RectTransform*[elementCount + 1];
+    for (int i = 0; i < elementCount; i++) {
+        newObjects[i] = elements[i];
+    }
+    newObjects[elementCount] = newObject;
+    delete[] elements;
+    elements = newObjects;
+    elementCount++;    
+}
+
+void UIGrid::RemoveElement(int index) {
+    if (index < 0 || index >= elementCount) return;
+    RectTransform** newObjects = new RectTransform*[elementCount - 1];
+    for (int i = 0, j = 0; i < elementCount; i++) {
+        if (i != index) {
+            newObjects[j++] = elements[i];
+        }
+    }
+    delete[] elements;
+    elements = newObjects;
+    elementCount--;
+}
+
+void UIGrid::OrderUI(int gridType)
+{
+    switch (gridType)
+    {
+        case VERTICAL:
+        {
+            for (int i = 0; i<elementCount; i++)
+            {
+                RectTransform* rect = elements[i];
+                cout<<rect->Name()<<endl;
+
+                rect->Rect({position.x, position.y + gridGap*i, rect->Rect().width, rect->Rect().height});
+            }
+
+            break;
+        }
+
+        case HORIZONTAL:
+        {
+            for (int i = 0; i<elementCount; i++)
+            {
+                RectTransform* rect = elements[i];
+                rect->Rect({position.x + gridGap*i, position.y, rect->Rect().width, rect->Rect().height});
+            }
+
+            break;
+        }
+    }
+}
+
+UIGrid::~UIGrid()
+{
+    delete[] elements;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
