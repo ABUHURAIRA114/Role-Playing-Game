@@ -11,7 +11,7 @@ class TransformMI
 
     public:
 
-    TransformMI(Vector3 position = {0, 0, 0}, Vector3 rotation = {0, 0, 0}, float size = 1) : position(position), rotation(rotation), size(size) {}
+    TransformMI(string name = "Transform Object", Vector3 position = {0, 0, 0}, Vector3 rotation = {0, 0, 0}, float size = 1) : name(name), position(position), rotation(rotation), size(size) {}
 
     virtual string Name() { return name; }
     virtual Vector3 Position() { return position; }
@@ -28,13 +28,13 @@ class Box : public TransformMI
 {
     Model model;
     BoundingBox boundary;
-
+    Color color;
     void UpdateRotation();
     void UpdateBoundary();
 
     public:
 
-    Box(Vector3 position = {0, 0, 0}, float size = 1) : TransformMI(position, {0, 0, 0}, size)
+    Box(string name = "Box Object", Vector3 position = {0, 0, 0}, float size = 1, Color color = DARKBLUE) : TransformMI(name, position, {0, 0, 0}, size), color(color)
     { model = LoadModelFromMesh(GenMeshCube(size, size, size)); UpdateBoundary(); }
 
     Model Model() { return model; }
@@ -44,11 +44,13 @@ class Box : public TransformMI
     void Rotation(Vector3 newRotation) { rotation = newRotation; UpdateRotation(); }
     void Size(float newSize) { size = newSize; UpdateBoundary(); }
     void Name(string name) { this->name = name; }
+    void _Color(Color newColor) { color = newColor; }    
 
     Vector3 Position() { return position; }
     Vector3 Rotation() { return rotation; }
     float Size() { return size; }
     string Name() { return name; }
+    Color _Color() { return color; }
 };
 
 class CameraMI
@@ -70,6 +72,7 @@ class CameraMI
     void Target(Vector3 newTarget) { camera.target = newTarget; }
     Vector3 Direction() { return (Vector3){camera.target.x - camera.position.x, camera.target.y - camera.position.y, camera.target.z - camera.position.z}; }
     void CameraFreeMove(float dT);
+    void SpeedScroll();
 };
 
 struct Scene
@@ -77,6 +80,10 @@ struct Scene
     Box **objects;
     int objectCount;
     CameraMI sceneCamera;
+    Box* selected;
+    float selectionSpeed = 2.0f;
+    Ray selectionRay;
+    RayCollision selectionRayCollision;
 
     Scene() : objects(nullptr), objectCount(0), sceneCamera() {}
 
@@ -85,4 +92,9 @@ struct Scene
     Box** Objects() { return objects; }
     int ObjectCount() { return objectCount; }   
     int FindIndex(string name);
+
+    void SelectionMove(float dT);
+    void SpeedScroll();
+    void DrawScene();
+    void SelectObject(Ray ray);
 };

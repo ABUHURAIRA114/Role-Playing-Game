@@ -2,6 +2,23 @@
 
 // Misc ==================================================================================================================================================================================
 
+Vector3 Normalize(Vector3 v)
+{
+    float length = sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    if (length == 0) return {0, 0, 0};
+    return {v.x / length, v.y / length, v.z / length};
+}
+
+Vector3 operator+(Vector3& a, Vector3& b)
+{
+    return {a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
+Vector3 operator-(Vector3& a, Vector3& b)
+{
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
 float DotProduct(Vector3 a, Vector3 b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
@@ -52,13 +69,23 @@ void CameraMI::CameraFreeMove(float dT)
     target.y = camera.position.y + 10*cos(pitch);
     camera.target = target;
 
-    direction = { target.x - camera.position.x, target.y - camera.position.y, target.z - camera.position.z };  
+    direction = target-camera.position;  
+    Vector2 input = GetDirectionalInputV(FORWARD_KEY, BACKWARD_KEY, LEFT_KEY, RIGHT_KEY);
 
     camera.position = (Vector3){
-        camera.position.x + speed * dT * (GetDirectionalInputV().y* -direction.x  + GetDirectionalInputV().x * CrossProduct(direction, camera.up).x),
-        camera.position.y + speed * dT * GetDirectionalInputV().y * -direction.y,
-        camera.position.z + speed * dT * (GetDirectionalInputV().y * -direction.z + GetDirectionalInputV().x * CrossProduct(direction, camera.up).z)
+        camera.position.x + speed * dT * (input.y* -direction.x  + input.x * CrossProduct(direction, camera.up).x),
+        camera.position.y + speed * dT * input.y * -direction.y,
+        camera.position.z + speed * dT * (input.y * -direction.z + input.x * CrossProduct(direction, camera.up).z)
     };
+}
+
+void CameraMI::SpeedScroll()
+{
+    if (GetMouseWheelMoveV().y != 0)
+    {
+        speed += GetMouseWheelMoveV().y * WHEEL_SENSITIVITY;
+        speed = Clamp(speed, 0.1f, MAX_SPEED);
+    }
 }
 
 // Scene ==================================================================================================================================================================================
@@ -97,3 +124,82 @@ int Scene::FindIndex(string name)
     }
     return -1; // Not found
 }
+
+void Scene::SelectionMove(float dT)
+{
+    if (selected != nullptr)
+    {
+        Vector2 moveInput = GetDirectionalInputV(FORWARD_KEY, BACKWARD_KEY, LEFT_KEY, RIGHT_KEY);
+        Vector2 rotationInput = GetDirectionalInputV(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT);
+        float sizeInput = GetInputODFrom(KEY_MINUS, KEY_EQUAL);
+        float heightInput = GetInputODFrom(KEY_Q, KEY_E);
+        
+        selected->Size(selected->Size() + sizeInput * dT * selectionSpeed);
+
+        selected->Position({
+            selected->Position().x + moveInput.x * dT * selectionSpeed,
+            selected->Position().y  + heightInput * dT * selectionSpeed,
+            selected->Position().z + moveInput.y * selectionSpeed * dT 
+        });
+
+        selected->Rotation({
+            selected->Rotation().x + rotationInput.y * dT * selectionSpeed, 
+            selected->Rotation().y + rotationInput.x * dT * selectionSpeed, 
+            selected->Rotation().z
+        });
+    }
+}
+
+void Scene::SpeedScroll()
+{
+    if (GetMouseWheelMoveV().y != 0)
+    {
+        selectionSpeed += GetMouseWheelMoveV().y * WHEEL_SENSITIVITY;
+        selectionSpeed = Clamp(selectionSpeed, 0.1f, MAX_SPEED);
+    }
+}   
+
+void Scene::DrawScene()
+{
+    for (int i = 0; i < objectCount; i++)
+    {
+        Box* box = objects[i];
+        DrawModel(box->Model(), box->Position(), box->Size(), box->_Color());
+    }
+}
+
+void Scene::SelectObject(Ray ray)
+{
+    selectionRay = ray;
+    selected = nullptr;
+    for (int i = 0; i < objectCount; i++)
+    {
+        Box* box = objects[i];
+        selectionRayCollision = GetRayCollisionBox(ray, box->Boundary());
+        if (selectionRayCollision.hit) {
+            selected = box;
+            break;
+        }
+    } 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
