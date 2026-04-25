@@ -77,6 +77,7 @@ struct GlobalInfo
     map<string, Model> models;
     map<string, Texture2D> textures;
     Scene scene;
+    void Shade();
     void LoadThings();
     void UnloadThings();
     private:
@@ -238,6 +239,68 @@ class SaveSystem
     void LoadScene(Scene& scene);
 };
 
+class Item
+{
+
+};
+
+class Weapon : public Item
+{
+
+};
+
+class Sword : public Weapon
+{
+
+};
+
+class Bow : public Weapon
+{
+
+};
+
+class Potion : public Item
+{
+
+};
+
+class Inventory
+{
+
+};
+
+class Character
+{
+    string name;
+    float maxHealth, currHealth;
+    float speed;
+
+    public:
+    Character(string name, float maxHealth, float speed) : name(name), maxHealth(maxHealth), currHealth(maxHealth), speed(speed) {}
+    virtual ~Character() = 0;
+
+    
+};
+
+class Player : public Character
+{
+
+};
+
+class NPC : public Character
+{
+
+};
+
+class Enemy : public NPC
+{
+
+};
+
+class Merchant : public NPC
+{
+
+};
 
 
 

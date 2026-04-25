@@ -219,6 +219,12 @@ void Scene::SelectionMove(float dT)
             selected->Rotation().y + rotationInput.x * dT * selectionSpeed, 
             selected->Rotation().z
         });
+
+        if (IsKeyPressed(KEY_DELETE))
+        {
+            RemoveObject(FindObjectIndex(selected->Name()));
+            selected = nullptr;
+        }
     }
 }
 
@@ -431,8 +437,14 @@ void SaveSystem::LoadScene(Scene& scene)
 
 // GlobalInfo ==================================================================================================================================================================================
 
+void GlobalInfo::Shade()
+{
+    
+}
+
 void GlobalInfo::LoadThings()
 {
+
     UIGrid grid({gI.SCREEN_WIDTH-300, 100}, 45);
     
     models[DEFAULT_MODEL_NAME] = LoadModelFromMesh(GenMeshCube(1, 1, 1));
@@ -449,7 +461,6 @@ void GlobalInfo::LoadThings()
                 models[name] = LoadModel(files.paths[i]);
                 if (FileExists((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str()))
                     textures[name] = LoadTexture((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str());
-                
                 scene.AddUIObject(new Button("Spawner"+to_string(i), name, {0,0}, {300, 40}, 20, DARKGRAY));
                 grid.AddElement(scene.ui[scene.uiCount-1]);
             }
