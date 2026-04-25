@@ -19,7 +19,7 @@ class CameraMI
     void Position(Vector3 newPos) { camera.position = newPos; }
     void Target(Vector3 newTarget) { camera.target = newTarget; }
     Vector3 Direction() { return (Vector3){camera.target.x - camera.position.x, camera.target.y - camera.position.y, camera.target.z - camera.position.z}; }
-    void CameraFreeMove(float dT);
+    void CameraFreeMove();
     void SpeedScroll();
 };
 
@@ -32,7 +32,7 @@ struct Scene
     float selectionSpeed = 2.0f;
     Ray selectionRay;
     RayCollision selectionRayCollision;
-
+    Player* player;
 
     RectTransform **ui;
     int uiCount;
@@ -47,13 +47,12 @@ struct Scene
     int FindUIObjectIndex(string name);
     void ObjectSpawn();
 
-    void SelectionMove(float dT);
+    void SelectionMove();
     void SpeedScroll();
     void DrawScene();
     void DrawSceneUI();
     void SelectObject(Ray ray);
 };
-
 
 struct GlobalInfo
 {
@@ -68,8 +67,13 @@ struct GlobalInfo
     const int BACKWARD_KEY = KEY_S;
     const int LEFT_KEY = KEY_A;
     const int RIGHT_KEY = KEY_D;
+    const int JUMP_KEY = KEY_SPACE;
+    const int SPRINT_KEY = KEY_LEFT_SHIFT;
+
     const string MODELS_FOLDER_PATH = "./assets/models"; 
     const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
+    const string SPRITES_FOLDER_PATH = "./assets/sprites"; 
+
     const string SAVE_FOLDER_PATH = "./saves"; 
     const string DEFAULT_MODEL_NAME = "DEF_MOD";
     static GlobalInfo instance;
@@ -77,6 +81,8 @@ struct GlobalInfo
     map<string, Model> models;
     map<string, Texture2D> textures;
     Scene scene;
+    float dT;
+
     void Shade();
     void LoadThings();
     void UnloadThings();
@@ -123,7 +129,7 @@ class Box : public TransformMI
     Box(string name = "BoxObject", Vector3 position = {0, 0, 0}, Vector3 rotation = {0,0,0}, float size = 1, string assetName = gI.DEFAULT_MODEL_NAME) : TransformMI(name, position, rotation, size),
     assetName(assetName)
     { 
-        model = GlobalInfo::instance.models[assetName];
+        model = gI.models[assetName];
         try 
         {
             Texture2D tex = gI.textures.at(assetName);
@@ -214,7 +220,6 @@ class Button : public RectTransform
     void Rect(Rectangle rect) { this->rect = rect; }
 };
 
-enum GridType { HORIZONTAL, VERTICAL };
 struct UIGrid
 {
     RectTransform **elements;
@@ -269,21 +274,79 @@ class Inventory
 
 };
 
-class Character
+class Character : public TransformMI
 {
-    string name;
-    float maxHealth, currHealth;
-    float speed;
+    protected: 
+
+    bool isGrounded;
+
+    Texture2D anims[4] = {}; // 0: Down, 1: Left, 2: Right, 3: Up
+    float frameTimer = 0.0f, frameWidth;
+    int currentFrame = 0,currDir = 0;
+
+    float maxHealth, currHealth, 
+    speed,
+    speedMultiplier = 1.0f;
+    Vector3 target;
+    float yVelocity;
 
     public:
-    Character(string name, float maxHealth, float speed) : name(name), maxHealth(maxHealth), currHealth(maxHealth), speed(speed) {}
+    Character(string name = "RJoe", float maxHealth=100, float speed=1, Vector3 position={0,0,0}, Vector3 target={0,0,0})
+    : TransformMI(name, position, {0,0,0}, 1), maxHealth(maxHealth), currHealth(maxHealth), speed(speed), target(target)
+    {
+
+    }
     virtual ~Character() = 0;
 
-    
+    virtual float MaxHealth() { return maxHealth; }
+    virtual float CurrHealth() { return currHealth; }
+    virtual float Speed() { return speed; }
+    virtual Vector3 Target() { return target; }
+    virtual bool IsGrounded() { return isGrounded; }
+
+    virtual void CurrHealth(float value) { currHealth = value; }
+    virtual void Speed(float value) { this->speed = value; }
+    virtual void Target(Vector3 value) { target= value; }
+
+    virtual void Update();
+    virtual void DrawCharacter() {}
 };
 
 class Player : public Character
 {
+    Ray groundRay;
+    RayCollision groundInfo;
+    bool hasJumped = false;
+    Camera3D camera;
+    float camDist = 4;
+
+    public:
+    Player(string name="Abu Huraira", float maxHealth=200, float speed=2, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
+    : Character(name, maxHealth, speed, position, target) {
+        camera.fovy = 95.0f;
+        camera.position = {position.x, position.y+camDist, position.z+camDist};
+        camera.target = position;
+        camera.up = {0, 1, 0};
+        camera.projection = CAMERA_PERSPECTIVE;
+        groundRay.direction = {0, -1, 0};
+    }
+
+    float MaxHealth() { return maxHealth; }
+    float CurrHealth() { return currHealth; }
+    float Speed() { return speed; }
+    Vector3 Target() { return target; }
+    bool IsGrounded() { return isGrounded; }
+    Camera3D Camera() { return camera; }
+    void CurrHealth(float value) { currHealth = value; }
+    void Speed(float value) { this->speed = value; }
+    void Target(Vector3 value) { target= value; }
+
+    void CalculateIsGrounded();
+    void Update();
+    void DrawCharacter();
+
+    friend void GlobalInfo::LoadThings();
+    friend void GlobalInfo::UnloadThings();
 
 };
 

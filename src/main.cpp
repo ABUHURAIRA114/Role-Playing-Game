@@ -2,21 +2,26 @@
 
 GlobalInfo gI;
 SaveSystem save(gI.SAVE_FOLDER_PATH+R"(\scene.txt)");
-float dT;
 string text, speedText;
+int mode;
 
 void Start()
 {
     gI.scene.sceneCamera.speed = 1.0f;
     gI.scene.sceneCamera.sensitivity = 0.5f;
     gI.scene.AddUIObject(new Button("Button 1", "Click To Add Box", {gI.SCREEN_WIDTH - 200, 30}, {200, 60}, 20, MAROON));
+    gI.scene.AddUIObject(new Button("Editor", "Editor", {gI.SCREEN_WIDTH/2 + 10, 30}, {200, 60}, 20, BLUE));
+    gI.scene.AddUIObject(new Button("Game", "Game", {gI.SCREEN_WIDTH/2 - 210, 30}, {200, 60}, 20, MAROON));
+
     gI.LoadThings();
     save.LoadScene(gI.scene);
+
+
 }
 
 void Update()
 {
-    dT = GetFrameTime();
+    gI.dT = GetFrameTime();
     gI.Shade();
     if (IsMouseButtonPressed(gI.FREE_CAMERA_KEY)) DisableCursor(); 
     else if (IsMouseButtonReleased(gI.FREE_CAMERA_KEY)) EnableCursor(); 
@@ -27,13 +32,13 @@ void Update()
     {   
         text = "Camera Mode";
         
-        gI.scene.sceneCamera.CameraFreeMove(dT);
+        gI.scene.sceneCamera.CameraFreeMove();
         gI.scene.sceneCamera.SpeedScroll();
     }
     else 
     {
         gI.scene.SpeedScroll();
-        gI.scene.SelectionMove(dT);
+        gI.scene.SelectionMove();
     }
 
     if (IsMouseButtonDown(gI.SELECTION_KEY))
@@ -41,7 +46,14 @@ void Update()
     
     Button* button = dynamic_cast<Button*>(gI.scene.ui[0]);
     if (button) if (button->IsClicked()) gI.scene.AddObject(new Box());
+    button = dynamic_cast<Button*>(gI.scene.ui[1]);
+    if (button) if (button->IsClicked()) mode = EDITOR;
+    button = dynamic_cast<Button*>(gI.scene.ui[2]);
+    if (button) if (button->IsClicked()) mode = GAME;
+
     gI.scene.ObjectSpawn();
+
+    if (mode == GAME) gI.scene.player->Update();
 }
 
 int main () {
@@ -56,7 +68,7 @@ int main () {
 
         BeginDrawing();
 
-            BeginMode3D(gI.scene.sceneCamera.Camera());
+            BeginMode3D((mode==EDITOR?gI.scene.sceneCamera.Camera():gI.scene.player->Camera()));
 
                 ClearBackground(SKYBLUE);
                 DrawGrid(10000, 1.0f);
@@ -67,7 +79,11 @@ int main () {
 
             DrawText("Camera", 10, 20, 20, DARKGREEN);
             DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.sceneCamera.Camera().position.x, gI.scene.sceneCamera.Camera().position.y, gI.scene.sceneCamera.Camera().position.z), 10, 50, 20, DARKBROWN);
+            DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.player->Position().x, gI.scene.player->Position().y,  gI.scene.player->Position().z), 10, 200, 20, DARKBROWN);
+            DrawText(TextFormat("X: %.2f Y: %.2f", gI.scene.player->Target().x, gI.scene.player->Target().y), 10, 230, 20, DARKBROWN);
+            
             DrawText(text.c_str(), 10, 80, 20, DARKGRAY);
+            DrawText((gI.scene.player->IsGrounded()? "Grounded" : "Not Grounded"), 10, 260, 20, DARKGRAY);
 
             if (gI.scene.selected != nullptr)
             {
