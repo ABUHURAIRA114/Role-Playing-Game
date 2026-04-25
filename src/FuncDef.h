@@ -2,13 +2,13 @@
 
 // Misc ==================================================================================================================================================================================
 
-string StripWhiteSpaces(std::string str) 
+string ReplaceWhiteSpaces(std::string str) 
 {
     string newString = str;
 
     int startPos = 0;
     while((startPos = newString.find(" ", startPos)) != std::string::npos) {
-        newString.replace(startPos, 1, "");
+        newString.replace(startPos, 1, "_");
         startPos ++;
     }
 
@@ -49,20 +49,6 @@ Vector3 CrossProduct(Vector3 a, Vector3 b)
     result.y = a.z * b.x - a.x * b.z;
     result.z = a.x * b.y - a.y * b.x;
     return result;
-}
-
-// GlobalInfo ==================================================================================================================================================================================
-
-void GlobalInfo::UnloadThings()
-{
-    for (auto model : models) 
-    {
-        UnloadModel(model.second);
-    }
-    for (auto tex : textures) 
-    {
-        UnloadTexture(tex.second);
-    }
 }
 
 // Box ==================================================================================================================================================================================
@@ -124,7 +110,7 @@ void CameraMI::SpeedScroll()
 
 void Scene::AddObject(Box* newObject, int i=0) 
 {
-    string name = StripWhiteSpaces(newObject->Name());
+    string name = ReplaceWhiteSpaces(newObject->Name());
 
     if (i>0) name = newObject->Name()+to_string(i);
     if (FindObjectIndex(name) != -1) 
@@ -146,7 +132,7 @@ void Scene::AddObject(Box* newObject, int i=0)
 
 void Scene::AddUIObject(RectTransform* newObject, int i=0)
 {
-    string name = StripWhiteSpaces(newObject->Name());
+    string name = ReplaceWhiteSpaces(newObject->Name());
     if (i>0) name = newObject->Name()+to_string(i);
     if (FindUIObjectIndex(name) != -1) 
     {
@@ -401,7 +387,7 @@ UIGrid::~UIGrid()
 
 void SaveSystem::SaveScene(Scene& scene)
 {   
-    ofstream file(saveFilePath, ios::out);
+    ofstream file(saveFilePath, ios::out | ios::binary);
 
     if (file.is_open())
     {
@@ -419,7 +405,7 @@ void SaveSystem::SaveScene(Scene& scene)
 
 void SaveSystem::LoadScene(Scene& scene)
 {   
-    ifstream file(saveFilePath, ios::in);
+    ifstream file(saveFilePath, ios::in | ios::binary);
 
     if (file.is_open())
     {
@@ -443,7 +429,53 @@ void SaveSystem::LoadScene(Scene& scene)
     }
 }
 
+// GlobalInfo ==================================================================================================================================================================================
 
+void GlobalInfo::LoadThings()
+{
+    UIGrid grid({gI.SCREEN_WIDTH-300, 100}, 45);
+    
+    models[DEFAULT_MODEL_NAME] = LoadModelFromMesh(GenMeshCube(1, 1, 1));
+    textures[DEFAULT_MODEL_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, DARKPURPLE, WHITE));
+
+    FilePathList files = LoadDirectoryFiles(MODELS_FOLDER_PATH.c_str());
+    for (int i = 0; i<(int)files.count; i++)
+    {
+        if (IsFileExtension(files.paths[i], ".obj") || IsFileExtension(files.paths[i], ".gltf"))
+        {
+            try
+            {
+                string name = GetFileNameWithoutExt(files.paths[i]);
+                models[name] = LoadModel(files.paths[i]);
+                if (FileExists((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str()))
+                    textures[name] = LoadTexture((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str());
+                
+                scene.AddUIObject(new Button("Spawner"+to_string(i), name, {0,0}, {300, 40}, 20, DARKGRAY));
+                grid.AddElement(scene.ui[scene.uiCount-1]);
+            }
+            catch(...)
+            {
+                cout<<"MASLA!!!\n";
+            }
+        }
+    }
+    grid.OrderUI(VERTICAL);
+
+    UnloadDirectoryFiles(files);
+
+}
+
+void GlobalInfo::UnloadThings()
+{
+    for (auto model : models) 
+    {
+        UnloadModel(model.second);
+    }
+    for (auto tex : textures) 
+    {
+        UnloadTexture(tex.second);
+    }
+}
 
 
 

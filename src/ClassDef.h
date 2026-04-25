@@ -1,100 +1,6 @@
 #include "HeaderAndProto.h"
 #define gI GlobalInfo::instance
 
-struct GlobalInfo
-{
-    const int SCREEN_WIDTH = 1920;
-    const int SCREEN_HEIGHT = 1080;
-    const int MAX_SPEED = 20;
-    const int WHEEL_SENSITIVITY = 1.0f;
-
-    const int FREE_CAMERA_KEY = MOUSE_BUTTON_RIGHT;
-    const int SELECTION_KEY = MOUSE_BUTTON_LEFT;
-    const int FORWARD_KEY = KEY_W;
-    const int BACKWARD_KEY = KEY_S;
-    const int LEFT_KEY = KEY_A;
-    const int RIGHT_KEY = KEY_D;
-    const string MODELS_FOLDER_PATH = "./assets/models"; 
-    const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
-    const string DEFAULT_MODEL_NAME = "DEF_MOD";
-    static GlobalInfo instance;
-    
-    map<string, Model> models;
-    map<string, Texture2D> textures;
-    // Scene scene;
-
-    void UnloadThings();
-    private:
-    GlobalInfo() {} 
-};
-
-class TransformMI
-{
-    protected:
-
-    string name;
-    Vector3 position;
-    Vector3 rotation;
-    float size;
-
-    public:
-
-    TransformMI(string name = "Transform Object", Vector3 position = {0, 0, 0}, Vector3 rotation = {0, 0, 0}, float size = 1) : name(name), position(position), rotation(rotation), size(size) {}
-    virtual ~TransformMI() {}
-
-    virtual string Name() { return name; }
-    virtual Vector3 Position() { return position; }
-    virtual Vector3 Rotation() { return rotation; }
-    virtual float Size() { return size; }
-
-    virtual void Position(Vector3 newPos) { position = newPos; }
-    virtual void Name(string name) { this->name = name; }
-    virtual void Rotation(Vector3 newRotation) { rotation = newRotation; }
-    virtual void Size(float newSize) { size = newSize; }
-};
-
-class Box : public TransformMI
-{
-    Model model;
-    string assetName;
-    BoundingBox boundary;
-    void UpdateRotation();
-    void UpdateBoundary();
-
-    public:
-
-    Box(string name = "BoxObject", Vector3 position = {0, 0, 0}, Vector3 rotation = {0,0,0}, float size = 1, string assetName = gI.DEFAULT_MODEL_NAME) : TransformMI(name, position, rotation, size),
-    assetName(assetName)
-    { 
-        if (assetName!=gI.DEFAULT_MODEL_NAME)
-        {
-            model = GlobalInfo::instance.models[assetName];
-            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = GlobalInfo::instance.textures[assetName];
-        }
-        else 
-        {
-            model = LoadModelFromMesh(GenMeshCube(10, 10, 10));
-            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, DARKPURPLE, WHITE));   
-        }
-        UpdateBoundary(); 
-        UpdateRotation();
-    }
-
-    Model Model() { return model; }
- 
-    BoundingBox Boundary() { return boundary; }
-    void Position(Vector3 newPos) { position = newPos; UpdateBoundary(); }
-    void Rotation(Vector3 newRotation) { rotation = newRotation; UpdateRotation(); }
-    void Size(float newSize) { size = newSize; UpdateBoundary(); }
-    void Name(string name) { this->name = name; } 
-    
-    Vector3 Position() { return position; }
-    Vector3 Rotation() { return rotation; }
-    float Size() { return size; }
-    string Name() { return name; }
-    string AssetName() { return assetName; }
-};
-
 class CameraMI
 {
     Camera3D camera;
@@ -146,6 +52,104 @@ struct Scene
     void DrawScene();
     void DrawSceneUI();
     void SelectObject(Ray ray);
+};
+
+
+struct GlobalInfo
+{
+    const int SCREEN_WIDTH = 1920;
+    const int SCREEN_HEIGHT = 1080;
+    const int MAX_SPEED = 20;
+    const int WHEEL_SENSITIVITY = 1.0f;
+
+    const int FREE_CAMERA_KEY = MOUSE_BUTTON_RIGHT;
+    const int SELECTION_KEY = MOUSE_BUTTON_LEFT;
+    const int FORWARD_KEY = KEY_W;
+    const int BACKWARD_KEY = KEY_S;
+    const int LEFT_KEY = KEY_A;
+    const int RIGHT_KEY = KEY_D;
+    const string MODELS_FOLDER_PATH = "./assets/models"; 
+    const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
+    const string SAVE_FOLDER_PATH = "./saves"; 
+    const string DEFAULT_MODEL_NAME = "DEF_MOD";
+    static GlobalInfo instance;
+    
+    map<string, Model> models;
+    map<string, Texture2D> textures;
+    Scene scene;
+    void LoadThings();
+    void UnloadThings();
+    private:
+    GlobalInfo() {} 
+};
+
+class TransformMI
+{
+    protected:
+
+    bool isActive;
+    string name;
+    Vector3 position;
+    Vector3 rotation;
+    float size;
+
+    public:
+
+    TransformMI(string name = "Transform Object", Vector3 position = {0, 0, 0}, Vector3 rotation = {0, 0, 0}, float size = 1) : name(name), position(position), rotation(rotation), size(size) {}
+    virtual ~TransformMI() {}
+
+    virtual string Name() { return name; }
+    virtual Vector3 Position() { return position; }
+    virtual Vector3 Rotation() { return rotation; }
+    virtual float Size() { return size; }
+
+    virtual void Position(Vector3 newPos) { position = newPos; }
+    virtual void Name(string name) { this->name = name; }
+    virtual void Rotation(Vector3 newRotation) { rotation = newRotation; }
+    virtual void Size(float newSize) { size = newSize; }
+};
+
+class Box : public TransformMI
+{
+    Model model;
+    string assetName;
+    BoundingBox boundary;
+    void UpdateRotation();
+    void UpdateBoundary();
+
+    public:
+
+    Box(string name = "BoxObject", Vector3 position = {0, 0, 0}, Vector3 rotation = {0,0,0}, float size = 1, string assetName = gI.DEFAULT_MODEL_NAME) : TransformMI(name, position, rotation, size),
+    assetName(assetName)
+    { 
+        model = GlobalInfo::instance.models[assetName];
+        try 
+        {
+            Texture2D tex = gI.textures.at(assetName);
+            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = tex;
+        }
+        catch(out_of_range& e)
+        {
+            cout<<"Texture not found in map : "<<e.what()<<endl;;
+        }
+        
+        UpdateBoundary(); 
+        UpdateRotation();
+    }
+
+    Model Model() { return model; }
+ 
+    BoundingBox Boundary() { return boundary; }
+    void Position(Vector3 newPos) { position = newPos; UpdateBoundary(); }
+    void Rotation(Vector3 newRotation) { rotation = newRotation; UpdateRotation(); }
+    void Size(float newSize) { size = newSize; UpdateBoundary(); }
+    void Name(string name) { this->name = name; } 
+    
+    Vector3 Position() { return position; }
+    Vector3 Rotation() { return rotation; }
+    float Size() { return size; }
+    string Name() { return name; }
+    string AssetName() { return assetName; }
 };
 
 class RectTransform
