@@ -15,14 +15,12 @@ void Start()
 
     gI.LoadThings();
     save.LoadScene(gI.scene);
-
-
 }
 
 void Update()
 {
     gI.dT = GetFrameTime();
-    gI.Shade();
+    gI.Shade(); 
     if (IsMouseButtonPressed(gI.FREE_CAMERA_KEY)) DisableCursor(); 
     else if (IsMouseButtonReleased(gI.FREE_CAMERA_KEY)) EnableCursor(); 
     

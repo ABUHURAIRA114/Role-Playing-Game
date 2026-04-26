@@ -327,15 +327,16 @@ void Scene::DrawSceneUI()
 
 void Scene::SelectObject(Ray ray)
 {
+    float dist;
     selectionRay = ray;
     selected = nullptr;
     for (int i = 0; i < objectCount; i++)
     {
         Box* box = objects[i];
         selectionRayCollision = GetRayCollisionBox(ray, box->Boundary());
-        if (selectionRayCollision.hit) {
+        if (i==0) dist = selectionRayCollision.distance;
+        if (selectionRayCollision.hit && selectionRayCollision.distance<=dist) {
             selected = box;
-            break;
         }
     } 
 }
@@ -532,17 +533,36 @@ void GlobalInfo::LoadThings()
     }
     grid.OrderUI(VERTICAL);
     gI.scene.player = new Player();
-    scene.player->anims[0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownWalk.png)").c_str());
-    scene.player->anims[1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftWalk.png)").c_str());
-    scene.player->anims[2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightWalk.png)").c_str());
-    scene.player->anims[3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpWalk.png)").c_str());
+    scene.player->anims[0][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownIdle.png)").c_str());
+    scene.player->anims[0][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftIdle.png)").c_str());
+    scene.player->anims[0][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightIdle.png)").c_str());
+    scene.player->anims[0][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpIdle.png)").c_str());
+
+    scene.player->anims[1][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownWalk.png)").c_str());
+    scene.player->anims[1][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftWalk.png)").c_str());
+    scene.player->anims[1][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightWalk.png)").c_str());
+    scene.player->anims[1][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpWalk.png)").c_str());
+    
+    scene.player->anims[2][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownJump.png)").c_str());
+    scene.player->anims[2][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftJump.png)").c_str());
+    scene.player->anims[2][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightJump.png)").c_str());
+    scene.player->anims[2][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpJump.png)").c_str());
+
+    scene.player->anims[3][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownAttack01.png)").c_str());
+    scene.player->anims[3][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftAttack01.png)").c_str());
+    scene.player->anims[3][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightAttack01.png)").c_str());
+    scene.player->anims[3][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpAttack01.png)").c_str());
 
     for (int i = 0; i < 4; i++) {
-            SetTextureFilter(scene.player->anims[i], TEXTURE_FILTER_POINT);
+        for (int j = 0; j < 4; j++) {
+            SetTextureFilter(scene.player->anims[i][j], TEXTURE_FILTER_POINT);
         }
+    }
 
-    scene.player->frameWidth = scene.player->anims[0].width / 8; // Assume 8 frames per direction by default
-        cout<<"FRAME WIDTH"<<scene.player->frameWidth<<endl;
+    scene.player->frameWidth[0] = scene.player->anims[0][0].width / 5;
+    scene.player->frameWidth[1] = scene.player->anims[1][0].width / 8;
+    scene.player->frameWidth[2] = scene.player->anims[2][0].width / 5;
+    scene.player->frameWidth[3] = scene.player->anims[3][0].width / 6;
 
     UnloadDirectoryFiles(files);
 }
@@ -560,7 +580,10 @@ void GlobalInfo::UnloadThings()
 
     for (int i = 0; i < 4; i++) 
     {
-        UnloadTexture(scene.player->anims[i]);
+        for (int j = 0; j < 4; j++) 
+        {
+            UnloadTexture(scene.player->anims[i][j]);
+        }
     }
 }
 
@@ -570,22 +593,36 @@ void Character::Update()
 {
     target.y = position.y;
     Vector3 direction = (target-position);
-    if (Magnitude(direction) > speed*gI.dT)
+    if (Magnitude(direction) > 0)
+    {
         position = position + Normalize(direction)*speed*gI.dT*speedMultiplier;
-
-    // Assuming 'direction' is the Vector3 result of your movement input
-    if (fabs(direction.x) > fabs(direction.z)) {
-        currDir = (direction.x > 0) ? RIGHT : LEFT;
-    } else if (fabs(direction.z) > 0.1f) { // Added threshold to prevent flickering
-        currDir = (direction.z > 0) ? DOWN : UP;
     }
+
+    float ax = fabs(direction.x);
+    float az = fabs(direction.z);
+    const float hysteresis = 1.3f; // current axis must be beaten by this factor to switch
+
+    if (currDir == LEFT || currDir == RIGHT)
+    {
+        // Currently horizontal — only switch to vertical if z clearly dominates
+        if (az > ax * hysteresis)
+            currDir = (direction.z > 0) ? DOWN : UP;
+        else if (ax > 0.05f)
+            currDir = (direction.x > 0) ? RIGHT : LEFT;
+    }
+    else
+    {
+        // Currently vertical — only switch to horizontal if x clearly dominates
+        if (ax > az * hysteresis)
+            currDir = (direction.x > 0) ? RIGHT : LEFT;
+        else if (az > 0.05f)
+            currDir = (direction.z > 0) ? DOWN : UP;
+    }
+
     cout<<"CURR DIR: "<<currDir<<endl;
 }
 
-Character::~Character()
-{
-    
-}
+Character::~Character() {}
 
 // Player ==================================================================================================================================================================================
 
@@ -598,9 +635,26 @@ void Player::Update()
     Vector2 moveInput = GetDirectionalInputV();
     Vector3 inputDir = {moveInput.x * gI.dT * speed * speedMultiplier, 0, moveInput.y * gI.dT * speed * speedMultiplier};
 
+    directionRay.position = position;
     Vector3 currentTarget = target;
-    target = (currentTarget + inputDir);
-    speedMultiplier = (IsKeyDown(gI.SPRINT_KEY)?4.0f:1.0f);
+    target = (position + inputDir);
+    directionRay.direction = Normalize(target-position);
+
+    for (int i = 0; i<gI.scene.objectCount; i++) 
+    {
+        rayInfo = GetRayCollisionBox(directionRay, gI.scene.objects[i]->Boundary());
+
+        if (rayInfo.hit)
+        {
+            if (rayInfo.distance<=0.5f)
+            {
+                target = position;
+            }
+            
+        }
+    }
+    
+    speedMultiplier = 2.0f;
     Character::Update();
 
     camera.position = {position.x, position.y+camDist, position.z+camDist};
@@ -614,9 +668,10 @@ void Player::Update()
         if (jT>3.0f || (jT>1.0f && isGrounded)) hasJumped = false;
     }
     
-    
     if (isGrounded && !hasJumped)
     {
+        if (state != ATTACKING) state = (Magnitude(inputDir) > 0) ? state = MOVING: state = IDLE;
+        
         cout<<"GROUND!!!\n";
         if (IsKeyPressed(gI.JUMP_KEY))
         {
@@ -627,44 +682,96 @@ void Player::Update()
         }
         else yVelocity = 0;
     }
-    else  yVelocity -= 9.8f * gI.dT;
+    else 
+    {
+        if (state != ATTACKING) state = JUMPING;
+        yVelocity -= 9.8f * gI.dT;
+    }
     
     yVelocity = Clamp(yVelocity, -15, 10);
     position.y +=  yVelocity * gI.dT;
 
-    cout<<hasJumped<<endl;
+    if (IsKeyPressed(gI.ATTACK_KEY))
+        state = ATTACKING;
 }
 
+bool animEnd = false;
+int lastState = -1;
 void Player::DrawCharacter()
 {
-    // Ensure frameWidth is set
+    // Ensure frameWidth is 
+    int i = 0;
+    if (state != lastState) {
+        currentFrame = 0;
+        frameTimer = 0.0f;
+        lastState = state;
+    
+    }
+    switch(state)
+    {
+        case IDLE:
+        {
+            i = 0;
+            break;
+        }
+        case MOVING:
+        {
+            i = 1;
+            break;
+        }
+        case JUMPING:
+        {
+            i = 2;
+            break;
+        }
+        case ATTACKING:
+        {
+            i = 3;
+            break;
+        }
+    }
+    Texture2D anim[4] = {anims[i][0], anims[i][1], anims[i][2], anims[i][3]};
 
     // If not moving, reset to first frame
     frameTimer += gI.dT;
-    if (frameTimer >= 0.1f) { // 10 FPS
+    if (frameTimer >= 0.1f) 
+    { 
         frameTimer = 0.0f;
-        if (anims[currDir].id > 0 && anims[currDir].width > 0) {
-        currentFrame++;
-        int maxFrames = anims[currDir].width / (int)frameWidth;
-        
-        if (currentFrame >= maxFrames) currentFrame = 0;
-    } else {
-        // Fallback: if no texture, keep frame at 0
-        currentFrame = 0;
+        if (anim[currDir].id > 0 && anim[currDir].width > 0)
+        {
+            int maxFrames = anim[currDir].width / (int)frameWidth[i];
+            if (currentFrame < maxFrames ) 
+                currentFrame++;
+            if (currentFrame >= maxFrames ) 
+            {
+                
+                if (state != JUMPING) 
+                {
+                    if (state == ATTACKING) state = IDLE;
+                    else currentFrame = 0;
+                }
+                else 
+                    currentFrame = maxFrames-1;
+            }
+        }
+        else 
+        {
+            currentFrame = 0;
+        }
     }
-    }
-    
 
+    cout<<"CURRENT FRAME : "<<currentFrame;
+    
     Rectangle sourceRec = {
-        (float)currentFrame * frameWidth,
+        (float)currentFrame * frameWidth[i],
         0,
-        (float)frameWidth,
-        (float)anims[currDir].height
+        (float)frameWidth[i],
+        (float)anim[currDir].height
     };
 
     DrawBillboardRec(
         camera,
-        anims[currDir],
+        anim[currDir],
         sourceRec,
         position,
         (Vector2){ size*2, size*2 },
@@ -675,23 +782,23 @@ void Player::DrawCharacter()
 void Player::CalculateIsGrounded()
 {
     isGrounded = false;
-    // if (position.y<=size/2) isGrounded = true;
+    if (position.y<=size/2) isGrounded = true;
 
-    for (int i = 0; i<gI.scene.objectCount; i++) 
-    {
-        groundInfo = GetRayCollisionBox(groundRay, gI.scene.objects[i]->Boundary());
+    // for (int i = 0; i<gI.scene.objectCount; i++) 
+    // {
+    //     groundInfo = GetRayCollisionBox(groundRay, gI.scene.objects[i]->Boundary());
 
-        if (groundInfo.hit)
-        {
-            if (groundInfo.distance<=0.2f)
-            {
-                isGrounded = true;
-                // position.y = groundInfo.point.y + groundInfo.distance;
-                // break;
-            }
+    //     if (groundInfo.hit)
+    //     {
+    //         if (groundInfo.distance<=0.2f)
+    //         {
+    //             isGrounded = true;
+    //             // position.y = groundInfo.point.y + groundInfo.distance;
+    //             // break;
+    //         }
             
-        }
-    }
+    //     }
+    // }
 }
 
 

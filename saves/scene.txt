@@ -1,7 +1,14 @@
-Gameobject1 Crate_2 50.5977 0 75.7489 0 0 0 1 EL
+Gameobject1 Crate_2 62.432 0 135.449 0 0 0 1 EL
 BoxObject DEF_MOD -14.1103 0 4.18645 -3.47636 -0.22442 0 0.373483 EL
-Gameobject7 Balcony_Cross_Corner -10.4232 0 -9.77247 -2.91061 3.34216 0 1 EL
+Gameobject7 Balcony_Cross_Corner -9.41945 0 -10.8763 -2.91061 3.34216 0 1 EL
 Gameobject Balcony_Cross_Corner 0 -10.6383 0 0 0 0 1 EL
 BoxObject1 DEF_MOD 0 -8.68064 -3.66278 -4.68358 -0.103698 0 1 EL
-BoxObject2 DEF_MOD 3.15325 -40.0866 3.86091 0 0 0 40.4319 EL
+BoxObject2 DEF_MOD 11.5691 -40.0866 -0.825779 0 0 0 40.4319 EL
 BoxObject3 DEF_MOD 0 -5.34376 9.11772 0 0 0 1 EL
+Gameobject2 Balcony_Cross_Corner 8.48951 0 34.511 0 0 0 1 EL
+Gameobject3 Crate_2 -8.17249 0 -33.5375 0.0963663 -24.837 0 15.1469 EL
+Gameobject4 Balcony_Cross_Corner 5.00432 0 2.87257 0 0 0 1 EL
+Gameobject5 Crate -7.345 0 -3.33039 0 0 0 1 EL
+Gameobject6 Crate -5.57249 0 6.44678 0 0 0 1 EL
+Gameobject8 Crate_2 7.18977 0 -1.88857 0 0 0 1 EL
+BoxObject4 DEF_MOD 0 0 0 0 0 0 1 EL

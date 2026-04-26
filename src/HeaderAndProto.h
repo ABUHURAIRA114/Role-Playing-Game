@@ -7,7 +7,7 @@
 using namespace std;
 
 enum Direction { DOWN=0, LEFT=1, RIGHT=2, UP=3 };
-
+enum AnimState { IDLE, MOVING, JUMPING, ATTACKING, DIE };
 
 enum GridType { HORIZONTAL, VERTICAL };
 enum Mode { EDITOR, GAME };
@@ -23,9 +23,6 @@ struct GlobalInfo;
 class SaveSystem;
 
 class Item;
-class Weapon;
-class Sword;
-class Bow; 
 class Potion;
 class Inventory;
 class Character;

@@ -69,6 +69,7 @@ struct GlobalInfo
     const int RIGHT_KEY = KEY_D;
     const int JUMP_KEY = KEY_SPACE;
     const int SPRINT_KEY = KEY_LEFT_SHIFT;
+    const int ATTACK_KEY = KEY_LEFT_CONTROL;
 
     const string MODELS_FOLDER_PATH = "./assets/models"; 
     const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
@@ -249,21 +250,6 @@ class Item
 
 };
 
-class Weapon : public Item
-{
-
-};
-
-class Sword : public Weapon
-{
-
-};
-
-class Bow : public Weapon
-{
-
-};
-
 class Potion : public Item
 {
 
@@ -278,17 +264,20 @@ class Character : public TransformMI
 {
     protected: 
 
+    Ray directionRay;
+    RayCollision rayInfo;
     bool isGrounded;
 
-    Texture2D anims[4] = {}; // 0: Down, 1: Left, 2: Right, 3: Up
-    float frameTimer = 0.0f, frameWidth;
-    int currentFrame = 0,currDir = 0;
+    Texture2D anims[7][4] = {}; // 0: Down, 1: Left, 2: Right, 3: Up
+    float frameTimer = 0.0f, frameWidth[7] = {};  
+    int currentFrame = 0, currDir = 0;
 
     float maxHealth, currHealth, 
     speed,
     speedMultiplier = 1.0f;
     Vector3 target;
     float yVelocity;
+    int state;
 
     public:
     Character(string name = "RJoe", float maxHealth=100, float speed=1, Vector3 position={0,0,0}, Vector3 target={0,0,0})
@@ -318,7 +307,7 @@ class Player : public Character
     RayCollision groundInfo;
     bool hasJumped = false;
     Camera3D camera;
-    float camDist = 4;
+    float camDist = 2;
 
     public:
     Player(string name="Abu Huraira", float maxHealth=200, float speed=2, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
@@ -347,7 +336,6 @@ class Player : public Character
 
     friend void GlobalInfo::LoadThings();
     friend void GlobalInfo::UnloadThings();
-
 };
 
 class NPC : public Character
