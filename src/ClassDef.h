@@ -145,7 +145,7 @@ class Box : public TransformMI
         UpdateRotation();
     }
 
-    Model Model() { return model; }
+    Model _Model() { return model; }
  
     BoundingBox Boundary() { return boundary; }
     void Position(Vector3 newPos) { position = newPos; UpdateBoundary(); }
@@ -208,7 +208,7 @@ class Button : public RectTransform
 
     Color BackColor() { return backColor; }
     void BackColor(Color newColor) { backColor = newColor; }
-    Text _Text() { return text; }
+    Text& _Text() { return text; }
     void _Text(Text newText) { text = newText; }
 
     bool IsHovering();
@@ -273,11 +273,11 @@ class Character : public TransformMI
     int currentFrame = 0, currDir = 0;
 
     float maxHealth, currHealth, 
-    speed,
+    speed=1,
     speedMultiplier = 1.0f;
-    Vector3 target;
-    float yVelocity;
-    int state;
+    Vector3 target={0,0,0};
+    float yVelocity=0;
+    int state=0;
 
     public:
     Character(string name = "RJoe", float maxHealth=100, float speed=1, Vector3 position={0,0,0}, Vector3 target={0,0,0})

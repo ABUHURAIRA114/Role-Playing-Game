@@ -299,7 +299,7 @@ void Scene::DrawScene()
     for (int i = 0; i < objectCount; i++)
     {
         Box* box = objects[i];
-        DrawModel(box->Model(), box->Position(), box->Size(), WHITE);
+        DrawModel(box->_Model(), box->Position(), box->Size(), WHITE);
     }
     player->DrawCharacter();
 
@@ -553,7 +553,12 @@ void GlobalInfo::LoadThings()
     scene.player->anims[3][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightAttack01.png)").c_str());
     scene.player->anims[3][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpAttack01.png)").c_str());
 
-    for (int i = 0; i < 4; i++) {
+    scene.player->anims[4][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownDeath.png)").c_str());
+    scene.player->anims[4][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftDeath.png)").c_str());
+    scene.player->anims[4][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightDeath.png)").c_str());
+    scene.player->anims[4][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpDeath.png)").c_str());
+
+    for (int i = 0; i <= 4; i++) {
         for (int j = 0; j < 4; j++) {
             SetTextureFilter(scene.player->anims[i][j], TEXTURE_FILTER_POINT);
         }
@@ -563,6 +568,7 @@ void GlobalInfo::LoadThings()
     scene.player->frameWidth[1] = scene.player->anims[1][0].width / 8;
     scene.player->frameWidth[2] = scene.player->anims[2][0].width / 5;
     scene.player->frameWidth[3] = scene.player->anims[3][0].width / 6;
+    scene.player->frameWidth[4] = scene.player->anims[4][0].width / 5;
 
     UnloadDirectoryFiles(files);
 }
@@ -626,11 +632,15 @@ Character::~Character() {}
 
 // Player ==================================================================================================================================================================================
 
-
 float jT=0, yPos=0;
-
 void Player::Update()
 {
+    if (currHealth == 0)
+    {
+        state = DIE;
+        return;
+    }
+
     groundRay.position = position-(Vector3){0, size/2-0.1f, 0};
     Vector2 moveInput = GetDirectionalInputV();
     Vector3 inputDir = {moveInput.x * gI.dT * speed * speedMultiplier, 0, moveInput.y * gI.dT * speed * speedMultiplier};
@@ -700,36 +710,13 @@ int lastState = -1;
 void Player::DrawCharacter()
 {
     // Ensure frameWidth is 
-    int i = 0;
+    int i = state;
     if (state != lastState) {
         currentFrame = 0;
         frameTimer = 0.0f;
         lastState = state;
-    
     }
-    switch(state)
-    {
-        case IDLE:
-        {
-            i = 0;
-            break;
-        }
-        case MOVING:
-        {
-            i = 1;
-            break;
-        }
-        case JUMPING:
-        {
-            i = 2;
-            break;
-        }
-        case ATTACKING:
-        {
-            i = 3;
-            break;
-        }
-    }
+   
     Texture2D anim[4] = {anims[i][0], anims[i][1], anims[i][2], anims[i][3]};
 
     // If not moving, reset to first frame
@@ -744,8 +731,7 @@ void Player::DrawCharacter()
                 currentFrame++;
             if (currentFrame >= maxFrames ) 
             {
-                
-                if (state != JUMPING) 
+                if (state != JUMPING && state != DIE) 
                 {
                     if (state == ATTACKING) state = IDLE;
                     else currentFrame = 0;
@@ -754,10 +740,7 @@ void Player::DrawCharacter()
                     currentFrame = maxFrames-1;
             }
         }
-        else 
-        {
-            currentFrame = 0;
-        }
+        else currentFrame = 0;
     }
 
     cout<<"CURRENT FRAME : "<<currentFrame;

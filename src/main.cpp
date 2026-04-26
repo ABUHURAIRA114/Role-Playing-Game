@@ -12,6 +12,7 @@ void Start()
     gI.scene.AddUIObject(new Button("Button 1", "Click To Add Box", {gI.SCREEN_WIDTH - 200, 30}, {200, 60}, 20, MAROON));
     gI.scene.AddUIObject(new Button("Editor", "Editor", {gI.SCREEN_WIDTH/2 + 10, 30}, {200, 60}, 20, BLUE));
     gI.scene.AddUIObject(new Button("Game", "Game", {gI.SCREEN_WIDTH/2 - 210, 30}, {200, 60}, 20, MAROON));
+    gI.scene.AddUIObject(new Button("Kill", "Kill", {gI.SCREEN_WIDTH/2 - 210, 100}, {200, 60}, 20, RED));
 
     gI.LoadThings();
     save.LoadScene(gI.scene);
@@ -48,7 +49,22 @@ void Update()
     if (button) if (button->IsClicked()) mode = EDITOR;
     button = dynamic_cast<Button*>(gI.scene.ui[2]);
     if (button) if (button->IsClicked()) mode = GAME;
-
+    button = dynamic_cast<Button*>(gI.scene.ui[3]);
+    if (button) if (button->IsClicked()) 
+    {
+        if (gI.scene.player->CurrHealth()==100)
+        {
+            button->BackColor(GREEN);
+            button->_Text()._Text("Revive");
+            gI.scene.player->CurrHealth(0);
+        }
+        else
+        {
+            button->BackColor(RED);
+            button->_Text()._Text("Kill");
+            gI.scene.player->CurrHealth(100);
+        }
+    }
     gI.scene.ObjectSpawn();
 
     if (mode == GAME) gI.scene.player->Update();

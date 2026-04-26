@@ -7,7 +7,7 @@
 using namespace std;
 
 enum Direction { DOWN=0, LEFT=1, RIGHT=2, UP=3 };
-enum AnimState { IDLE, MOVING, JUMPING, ATTACKING, DIE };
+enum AnimState { IDLE=0, MOVING=1, JUMPING=2, ATTACKING=3, DIE=4 };
 
 enum GridType { HORIZONTAL, VERTICAL };
 enum Mode { EDITOR, GAME };
