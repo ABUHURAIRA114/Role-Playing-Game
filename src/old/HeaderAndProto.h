@@ -9,7 +9,7 @@
 using namespace std;
 
 enum Direction { DOWN=0, LEFT=1, RIGHT=2, UP=3 };
-enum AnimState { IDLE=0, MOVING=1, JUMPING=2, ATTACKING=3, DIE=4, HURT=5 };
+enum AnimState { IDLE=0, MOVING=1, JUMPING=2, ATTACKING=3, DIE=4 };
 enum PotionEffect { HEALTH_REGEN, STRENGTH_BOOST, STAMINA_REGEN };
 enum NPCRelation { ENEMY, FRIENDLY };
 enum GridType { HORIZONTAL, VERTICAL };
@@ -33,5 +33,4 @@ class Inventory;
 class Character;
 class Player;
 class NPC;
-class PossessedNPC;
 class Merchant; 

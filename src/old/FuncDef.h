@@ -302,14 +302,8 @@ void Scene::DrawScene()
         DrawModel(box->_Model(), box->Position(), box->Size(), WHITE);
         DrawModelWires(box->_Model(), box->Position(), box->Size(), BLACK);
     }
-
-    for (int i = 0; i < npcCount; i++) npcs[i]->DrawCharacter();
     player->DrawCharacter();
-    
-    for (auto bb : billboards)
-    {
-        DrawBillboardRec(bb.second.camera, bb.second.frame, bb.second.source, bb.second.position, bb.second.size, bb.second.color);
-    }
+
 }
 
 void Scene::DrawSceneUI()
@@ -335,24 +329,6 @@ void Scene::DrawSceneUI()
             DrawRectangleRec(banner->Rect(), banner->BackColor());
             DrawText(banner->_Text()._Text().c_str(), banner->Rect().x + banner->_Text().Rect().x, banner->Rect().y + banner->_Text().Rect().y, banner->_Text().Rect().width, WHITE);    
         }
-    }
-}
-
-void Scene::AddNPC(PossessedNPC* npc)
-{
-    PossessedNPC** newNPCs = new PossessedNPC*[npcCount + 1];
-    for (int i = 0; i < npcCount; i++) newNPCs[i] = npcs[i];
-    newNPCs[npcCount] = npc;
-    delete[] npcs;
-    npcs = newNPCs;
-    npcCount++;
-}
-
-void Scene::UpdateNPCs()
-{
-    for (int i = 0; i < npcCount; i++)
-    {
-        npcs[i]->Update();
     }
 }
 
@@ -397,11 +373,6 @@ Scene::~Scene()
     for (int i = 0; i<uiCount; i++)
         delete ui[i];
     delete[] ui;
-
-    for (int i = 0; i < npcCount; i++)
-        delete npcs[i];
-    delete[] npcs;
-
     delete player;
 }
 
@@ -550,30 +521,46 @@ void GlobalInfo::Shade()
     
 }
 
-void GlobalInfo::LoadAnim(Character* c, int stateIdx, const string& stateName, const string& name, int frameCount, const string& spritesPath)
-{
-    const char* dirs[4] = {"Down", "Left", "Right", "Up"};
-    for (int d = 0; d < 4; d++)
-    {
-        string path = spritesPath + "/" + name + dirs[d] + stateName + ".png";
-        c->anims[stateIdx][d] = LoadTexture(path.c_str());
-        SetTextureFilter(c->anims[stateIdx][d], TEXTURE_FILTER_POINT);
-    }
-
-    // frameWidth derived from texture width / frameCount
-    if (c->anims[stateIdx][0].id > 0 && c->anims[stateIdx][0].width > 0) c->frameWidth[stateIdx] = c->anims[stateIdx][0].width / (float)frameCount;
-    else c->frameWidth[stateIdx] = 1;
-}
-
 void GlobalInfo::PlayerInfo()
 {
     gI.scene.player = new Player();
+    scene.player->anims[0][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownIdle.png)").c_str());
+    scene.player->anims[0][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftIdle.png)").c_str());
+    scene.player->anims[0][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightIdle.png)").c_str());
+    scene.player->anims[0][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpIdle.png)").c_str());
 
-    LoadAnim(scene.player, IDLE,     "Idle", "Warrior",    5, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, MOVING,   "Walk", "Warrior",    8, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, JUMPING,  "Jump", "Warrior",    5, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, ATTACKING,"Attack01", "Warrior",6, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, DIE,      "Death", "Warrior",   5, SPRITES_FOLDER_PATH);
+    scene.player->anims[1][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownWalk.png)").c_str());
+    scene.player->anims[1][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftWalk.png)").c_str());
+    scene.player->anims[1][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightWalk.png)").c_str());
+    scene.player->anims[1][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpWalk.png)").c_str());
+    
+    scene.player->anims[2][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownJump.png)").c_str());
+    scene.player->anims[2][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftJump.png)").c_str());
+    scene.player->anims[2][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightJump.png)").c_str());
+    scene.player->anims[2][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpJump.png)").c_str());
+
+    scene.player->anims[3][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownAttack01.png)").c_str());
+    scene.player->anims[3][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftAttack01.png)").c_str());
+    scene.player->anims[3][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightAttack01.png)").c_str());
+    scene.player->anims[3][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpAttack01.png)").c_str());
+
+    scene.player->anims[4][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownDeath.png)").c_str());
+    scene.player->anims[4][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftDeath.png)").c_str());
+    scene.player->anims[4][2] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorRightDeath.png)").c_str());
+    scene.player->anims[4][3] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorUpDeath.png)").c_str());
+
+    for (int i = 0; i <= 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            SetTextureFilter(scene.player->anims[i][j], TEXTURE_FILTER_POINT);
+        }
+    }
+
+    scene.player->frameWidth[0] = scene.player->anims[0][0].width / 5;
+    scene.player->frameWidth[1] = scene.player->anims[1][0].width / 8;
+    scene.player->frameWidth[2] = scene.player->anims[2][0].width / 5;
+    scene.player->frameWidth[3] = scene.player->anims[3][0].width / 6;
+    scene.player->frameWidth[4] = scene.player->anims[4][0].width / 5;
+
     
     int barWidth = BAR_WIDTH,
     barHeight = 25,
@@ -603,9 +590,9 @@ void GlobalInfo::PlayerInfo()
     grid.OrderUI(VERTICAL);
 
     scene.player->i1 = scene.uiCount;
-    scene.AddUIObject(new Text("PL_INV_T", to_string(scene.player->i1), (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
+    scene.AddUIObject(new Text("PL_INV_T", to_string(scene.player->i1), (Vector2){(float)buttonSize/10.0f + buttonSize + 5, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
     scene.player->i2 = scene.uiCount;
-    scene.AddUIObject(new Text("PL_INV_T_1", to_string(scene.player->i2), (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
+    scene.AddUIObject(new Text("PL_INV_T_1", to_string(scene.player->i2), (Vector2){(float)buttonSize/10.0f + buttonSize + 5, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
 
 
     try
@@ -669,47 +656,10 @@ void GlobalInfo::Assets()
     StaminaPotent = Potion("Potent Stamina Potion", false, STAMINA_REGEN, 60);
 }
 
-// Spawn positions for possessed NPCs scattered around the scene
-static const Vector3 NPC_SPAWN_POSITIONS[] = {
-    {  5, 0.5f,  5 },
-    { -5, 0.5f,  8 },
-    {  8, 0.5f, -4 },
-    { -8, 0.5f, -6 },
-    {  3, 0.5f, -9 },
-};
-static const int NPC_COUNT = 5;
-
-void GlobalInfo::LoadNPCs()
-{
-    for (int n = 0; n < NPC_COUNT; n++)
-    {
-        PossessedNPC* npc = new PossessedNPC(
-            "Possessed_" + to_string(n),
-            NPC_SPAWN_POSITIONS[n],
-            60,   // maxHealth
-            2.5f, // speed
-            10    // damage
-        );
-
-        // Load animations — frame counts match Player's Warrior sprite sheets
-        // IDLE      (5 frames), MOVING/Walk (8 frames), JUMPING (5 frames),
-        // ATTACKING (6 frames), DIE/Death   (5 frames), HURT     (3 frames)
-        LoadAnim(npc, IDLE,     "Idle", "Possesed",    5, SPRITES_FOLDER_PATH);
-        LoadAnim(npc, MOVING,   "Walk", "Possesed",    6, SPRITES_FOLDER_PATH);
-        LoadAnim(npc, JUMPING,  "Jump", "Possesed",    5, SPRITES_FOLDER_PATH);
-        LoadAnim(npc, ATTACKING,"Attack01", "Possesed",11, SPRITES_FOLDER_PATH);
-        LoadAnim(npc, DIE,      "Death", "Possesed",   10, SPRITES_FOLDER_PATH);
-        LoadAnim(npc, HURT,     "Hurt", "Possesed",    4, SPRITES_FOLDER_PATH);
-
-        scene.AddNPC(npc);
-    }
-}
-
 void GlobalInfo::LoadThings()
 {
     Assets();
     PlayerInfo();
-    LoadNPCs();
 }
 
 void GlobalInfo::UnloadThings()
@@ -729,14 +679,6 @@ void GlobalInfo::UnloadThings()
         {
             UnloadTexture(scene.player->anims[i][j]);
         }
-    }
-
-    // Unload NPC textures
-    for (int n = 0; n < scene.npcCount; n++)
-    {
-        for (int i = 0; i < 7; i++)
-            for (int j = 0; j < 4; j++)
-                UnloadTexture(scene.npcs[n]->anims[i][j]);
     }
 }
 
@@ -856,152 +798,11 @@ Inventory::~Inventory()
         delete items[i];
 }
 
-// NPC ==================================================================================================================================================================================
-
-NPC::~NPC() {}
-
-// PossessedNPC ==================================================================================================================================================================================
-
-void PossessedNPC::TakeDamage(float amount)
-{
-    if (state == DIE) return;
-    currHealth = Clamp(currHealth - amount, 0, maxHealth);
-    if (currHealth <= 0)
-    {
-        state = DIE;
-    }
-    else
-    {
-        state = HURT;
-        hurtTimer = 0.4f;
-    }
-}
-
-void PossessedNPC::Update()
-{
-    if (state == DIE) return;
-
-    // Hurt flash — stay in HURT briefly, no movement
-    if (state == HURT)
-    {
-        hurtTimer -= gI.dT;
-        if (hurtTimer <= 0) state = IDLE;
-        return;
-    }
-
-    Player* player = gI.scene.player;
-    if (!player) return;
-
-    Vector3 toPlayer = {
-        player->Position().x - position.x,
-        0,
-        player->Position().z - position.z
-    };
-    float dist = Magnitude(toPlayer);
-
-    attackTimer -= gI.dT;
-    if (attackTimer < 0) attackTimer = 0;
-
-    if (dist <= ATTACK_RANGE)
-    {
-        // In melee range — attack
-        target = position; // stop moving
-        state = ATTACKING;
-
-        if (attackTimer <= 0)
-        {
-            attackTimer = ATTACK_COOLDOWN;
-            // Deal damage to player
-            float newHp = Clamp(player->CurrHealth() - (float)damage, 0, player->MaxHealth());
-            player->CurrHealth(newHp);
-        }
-    }
-    else if (dist <= AGGRO_RANGE)
-    {
-        // Chase player
-        target = {player->Position().x, position.y, player->Position().z};
-        state = MOVING;
-    }
-    else
-    {
-        // Return to spawn or idle
-        float distToSpawn = Magnitude({spawnPos.x - position.x, 0, spawnPos.z - position.z});
-        if (distToSpawn > 0.1f)
-        {
-            target = spawnPos;
-            state = MOVING;
-        }
-        else
-        {
-            target = position;
-            state = IDLE;
-        }
-    }
-
-    Character::Update();
-}
-
-void PossessedNPC::DrawCharacter()
-{
-    if (anims[IDLE][0].id == 0) return; // textures not loaded
-
-    int i = state;
-    if (i >= 7) i = IDLE; // safety clamp
-
-    if (state != npcLastState)
-    {
-        currentFrame = 0;
-        frameTimer = 0.0f;
-        npcLastState = state;
-    }
-
-    Texture2D anim[4] = {anims[i][0], anims[i][1], anims[i][2], anims[i][3]};
-
-    frameTimer += gI.dT;
-    if (frameTimer >= 0.12f)
-    {
-        frameTimer = 0.0f;
-        if (anim[currDir].id > 0 && anim[currDir].width > 0)
-        {
-            int maxFrames = anim[currDir].width / (int)frameWidth[i];
-            if (currentFrame < maxFrames - 1)
-                currentFrame++;
-            else
-            {
-                if (state == HURT)
-                    state = IDLE; // return to idle after attack/hurt anim
-                else if (state != DIE)
-                    currentFrame = 0;
-                // DIE stays on last frame
-            }
-        }
-        else currentFrame = 0;
-    }
-
-    Rectangle sourceRec = {
-        (float)currentFrame * frameWidth[i],
-        0,
-        (float)frameWidth[i],
-        (float)anim[currDir].height
-    };
-
-    AnimationData animData =
-    {
-        gI.scene.player->Camera(),
-        anim[currDir],
-        sourceRec,
-        position,
-        (Vector2){ size * 2, size * 2 },
-        WHITE
-    };
-
-    gI.scene.billboards[name] = animData;
-}
-
 // Player ==================================================================================================================================================================================
 
 float jT=0, yPos=0;
 bool isSprinting;
+
 void Player::Update() 
 {
     if (currHealth == 0)
@@ -1071,34 +872,8 @@ void Player::Update()
     yVelocity = Clamp(yVelocity, -15, 10);
     position.y +=  yVelocity * gI.dT;
 
-    if (IsKeyPressed(gI.ATTACK_KEY)) state = ATTACKING;
-}
-
-bool attackHitDealt = false;
-void Player::Attack()
-{
-    if (currHealth < 0) return;
-    
-    if (gI.scene.player->state != ATTACKING) 
-    {
-        attackHitDealt = false;
-        return;
-    }
-    
-    if (!attackHitDealt)
-    {
-        attackHitDealt = true;
-        const float PLAYER_ATTACK_RANGE = 1.5f;
-        for (int i = 0; i < gI.scene.npcCount; i++)
-        {
-            PossessedNPC* npc = gI.scene.npcs[i];
-
-            if (npc->State() == DIE) continue;
-
-            Vector3 diff = { npc->Position().x - position.x, 0, npc->Position().z - position.z };
-            if (Magnitude(diff) <= PLAYER_ATTACK_RANGE) npc->TakeDamage((float)gI.scene.player->CurrDamage());
-        }
-    }
+    if (IsKeyPressed(gI.ATTACK_KEY))
+        state = ATTACKING;
 }
 
 bool animEnd = false;
@@ -1146,17 +921,14 @@ void Player::DrawCharacter()
         (float)anim[currDir].height
     };
     // DrawSphere(position, 0.1f, BLACK);
-    AnimationData animData = 
-    {
+    DrawBillboardRec(
         camera,
         anim[currDir],
         sourceRec,
         position,
         (Vector2){ size*2, size*2 },
         WHITE
-    };
-
-    gI.scene.billboards[name] = animData;
+    );
 }
 
 void Player::CalculateIsGrounded()

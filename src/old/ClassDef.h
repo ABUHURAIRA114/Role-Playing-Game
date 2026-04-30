@@ -1,16 +1,6 @@
 #include "HeaderAndProto.h"
 #define gI GlobalInfo::instance
 
-struct AnimationData
-{
-    Camera3D camera;
-    Texture2D frame;
-    Rectangle source;
-    Vector3 position;
-    Vector2 size;
-    Color color;
-};
-
 class CameraMI
 {
     Camera3D camera;
@@ -47,16 +37,10 @@ struct Scene
     RectTransform **ui;
     int uiCount;
 
-    PossessedNPC **npcs;
-    int npcCount;
-
-    map<string, AnimationData> billboards;
-
-    Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), npcs(nullptr), npcCount(0), sceneCamera() {}
+    Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), sceneCamera() {}
     ~Scene();
     void AddObject(Box* newObject, int);
     void AddUIObject(RectTransform* newObject, int);
-    void AddNPC(PossessedNPC* npc);
     void RemoveObject(int index);
     void RemoveUIObject(int index);   
     int FindObjectIndex(string name);
@@ -68,7 +52,6 @@ struct Scene
     void DrawScene();
     void DrawSceneUI();
     void SelectObject(Ray ray);
-    void UpdateNPCs();
 };
 
 class Item
@@ -132,9 +115,7 @@ struct GlobalInfo
     Potion StaminaWeak, StaminaMid, StaminaPotent;
     Potion Strength;
 
-    void LoadAnim(Character* npc, int stateIdx, const string& stateName,const string& name, int frameCount, const string& spritesPath);
-
-    void Shade(), LoadThings(), PlayerInfo(), Assets(), LoadNPCs(), UnloadThings();
+    void Shade(), LoadThings(), PlayerInfo(), Assets(), UnloadThings();
     private:
     GlobalInfo() {} 
 };
@@ -327,11 +308,11 @@ class Character : public TransformMI
     Vector3 target;
     float yVelocity;
     int state, damage, currDamage;
-    
+
     public:
     Character(string name = "RJoe", float maxHealth=100, float speed=1, Vector3 position={0,0,0}, Vector3 target={0,0,0}, int damage = 10)
     : TransformMI(name, position, {0,0,0}, 1), maxHealth(maxHealth), currHealth(maxHealth), speed(speed), target(target),
-    yVelocity(0), state(0), damage(damage), currDamage(damage), speedMultiplier(1.0f) {}
+    yVelocity(0), state(0), damage(damage), currDamage(damage) {}
     virtual ~Character() = 0;
 
     virtual float MaxHealth() { return maxHealth; }
@@ -345,10 +326,8 @@ class Character : public TransformMI
     virtual void Target(Vector3 value) { target= value; }
 
     virtual void Update();
+    virtual void StateUpdate() {}
     virtual void DrawCharacter() {}
-    virtual void Attack() {}
-
-    friend void GlobalInfo::LoadAnim(Character* npc, int stateIdx, const string& stateName,const string& name, int frameCount, const string& spritesPath);
 };
 
 class Player : public Character
@@ -395,8 +374,6 @@ class Player : public Character
         InvUI_Update();
     }
 
-    int CurrDamage() { return currDamage; }
-
     void CurrHealth(float value) { currHealth = value; }
     void Speed(float value) { this->speed = value; }
     void Target(Vector3 value) { target= value; }
@@ -409,7 +386,6 @@ class Player : public Character
     void InvUI_Update();
     void StateUpdate();
     void DrawCharacter();
-    void Attack();
 
     friend void GlobalInfo::PlayerInfo();
     friend void GlobalInfo::UnloadThings();
@@ -418,59 +394,12 @@ class Player : public Character
 
 class NPC : public Character
 {
-    protected:
-    int relation; // NPCRelation enum: ENEMY or FRIENDLY
-
-    public:
-    NPC(string name = "NPC", float maxHealth = 60, float speed = 2, Vector3 position = {0, 0, 0},
-        int relation = FRIENDLY, int damage = 8)
-        : Character(name, maxHealth, speed, position, position, damage), relation(relation) {}
-
-    virtual ~NPC() = 0;
-
-    int Relation() { return relation; }
-    void Relation(int r) { relation = r; }
-
-    virtual int State() { return state; }
-};
-
-class PossessedNPC : public NPC
-{
-    const float AGGRO_RANGE = 6;   // detect player
-    const float ATTACK_RANGE = 1.2f;  // melee range
-    const float ATTACK_COOLDOWN = 1.5f;
-
-    float attackTimer;       // countdown between attacks
-    float hurtTimer;         // how long HURT state lasts
-    Vector3 spawnPos;        // original idle position
-
-    // per-NPC animation state helpers (mirrors Player)
-    int  npcLastState;
-    bool npcAnimEnd;
-
-    public:
-    PossessedNPC(string name = "Possessed", Vector3 position = {0, 0, 0},
-                 float maxHealth = 60, float speed = 2, int damage = 8)
-        : NPC(name, maxHealth, speed, position, ENEMY, damage),
-          attackTimer(0), hurtTimer(0), spawnPos(position),
-          npcLastState(-1), npcAnimEnd(false) {}
-
-    // Called externally when player's attack lands on this NPC
-    void TakeDamage(float amount);
-
-    void Update();
-    void DrawCharacter();
-    int State() { return state; }
-
-    friend void GlobalInfo::UnloadThings();
+    int relation;
 };
 
 class Merchant : public NPC
 {
-    public:
-    Merchant(string name = "Merchant", Vector3 position = {0,0,0})
-        : NPC(name, 100, 0, position, FRIENDLY, 0) {}
-    virtual ~Merchant() {}
+
 };
 
 

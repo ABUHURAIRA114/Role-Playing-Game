@@ -44,13 +44,10 @@ void Update()
     
     Button* button = dynamic_cast<Button*>(gI.scene.ui[0]);
     if (button) if (button->IsClicked()) gI.scene.AddObject(new Box());
-    
     button = dynamic_cast<Button*>(gI.scene.ui[1]);
     if (button) if (button->IsClicked()) mode = EDITOR;
-
     button = dynamic_cast<Button*>(gI.scene.ui[2]);
     if (button) if (button->IsClicked()) mode = GAME;
-
     button = dynamic_cast<Button*>(gI.scene.ui[3]);
     if (button) if (button->IsClicked()) 
     {
@@ -74,8 +71,6 @@ void Update()
         gI.scene.player->Update();
         gI.scene.player->UpdateEffects();
         gI.scene.player->StateUpdate();
-        gI.scene.player->Attack();
-        gI.scene.UpdateNPCs();
     }
 }
 
