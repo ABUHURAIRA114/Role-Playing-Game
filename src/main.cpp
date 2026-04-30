@@ -2,17 +2,17 @@
 
 GlobalInfo gI;
 SaveSystem save(gI.SAVE_FOLDER_PATH+R"(\scene.txt)");
-string text, speedText;
+string text;
 int mode;
 
 void Start()
 {
     gI.scene.sceneCamera.speed = 1.0f;
     gI.scene.sceneCamera.sensitivity = 0.5f;
-    gI.scene.AddUIObject(new Button("Button 1", "Click To Add Box", {gI.SCREEN_WIDTH - 200, 30}, {200, 60}, 20, MAROON));
-    gI.scene.AddUIObject(new Button("Editor", "Editor", {gI.SCREEN_WIDTH/2 + 10, 30}, {200, 60}, 20, BLUE));
-    gI.scene.AddUIObject(new Button("Game", "Game", {gI.SCREEN_WIDTH/2 - 210, 30}, {200, 60}, 20, MAROON));
-    gI.scene.AddUIObject(new Button("Kill", "Kill", {gI.SCREEN_WIDTH/2 - 210, 100}, {200, 60}, 20, RED));
+    gI.scene.AddUIObject(new Button("Button 1", "Click To Add Box", (Vector2){gI.SCREEN_WIDTH - 200, 30}, (Vector2){200, 60}, 20, MAROON));
+    gI.scene.AddUIObject(new Button("Editor", "Editor", (Vector2){gI.SCREEN_WIDTH/2 + 10, 30}, (Vector2){200, 60}, 20, BLUE));
+    gI.scene.AddUIObject(new Button("Game", "Game", (Vector2){gI.SCREEN_WIDTH/2 - 210, 30}, (Vector2){200, 60}, 20, MAROON));
+    gI.scene.AddUIObject(new Button("Kill", "Kill", (Vector2){gI.SCREEN_WIDTH/2 - 210, 100}, (Vector2){200, 60}, 20, RED));
 
     gI.LoadThings();
     save.LoadScene(gI.scene);
@@ -25,7 +25,6 @@ void Update()
     if (IsMouseButtonPressed(gI.FREE_CAMERA_KEY)) DisableCursor(); 
     else if (IsMouseButtonReleased(gI.FREE_CAMERA_KEY)) EnableCursor(); 
     
-    speedText = "";
     text = "Camera Off";
     if (IsMouseButtonDown(gI.FREE_CAMERA_KEY))
     {   
@@ -67,7 +66,11 @@ void Update()
     }
     gI.scene.ObjectSpawn();
 
-    if (mode == GAME) gI.scene.player->Update();
+    if (mode == GAME)
+    {
+        gI.scene.player->Update();
+        gI.scene.player->UpdateEffects();
+    }
 }
 
 int main () {
@@ -78,7 +81,7 @@ int main () {
 
     while (WindowShouldClose() == false){
    
-        Update();
+        Update(); 
 
         BeginDrawing();
 
@@ -105,8 +108,8 @@ int main () {
                 DrawText(TextFormat("Name: %s", gI.scene.selected->Name().c_str()), 10, 140, 20, DARKGREEN);
                 DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.selected->Position().x, gI.scene.selected->Position().y, gI.scene.selected->Position().z), 10, 170, 20, DARKGREEN);
             }
-
-            DrawText(speedText.c_str(), gI.SCREEN_WIDTH/2, gI.SCREEN_HEIGHT/2, 40, DARKGRAY);
+            
+            DrawText(to_string(gI.scene.player->CurrStamina()).c_str(), gI.SCREEN_WIDTH/2, gI.SCREEN_HEIGHT/2, 40, DARKGRAY);
             
             gI.scene.DrawSceneUI();
 
@@ -117,5 +120,6 @@ int main () {
     save.SaveScene(gI.scene);
     gI.UnloadThings();
 
+    cout<<"ENDING";
     CloseWindow();
 }

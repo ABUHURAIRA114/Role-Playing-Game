@@ -46,12 +46,36 @@ struct Scene
     int FindObjectIndex(string name);
     int FindUIObjectIndex(string name);
     void ObjectSpawn();
-
+    
     void SelectionMove();
     void SpeedScroll();
     void DrawScene();
     void DrawSceneUI();
     void SelectObject(Ray ray);
+};
+
+class Item
+{
+    protected:
+    string name;
+    bool essential;
+
+    public:
+    Item(string name="Item", bool essential=false) : name(name), essential(essential) {}
+    virtual ~Item() {}
+
+    string Name() { return name; }
+};
+
+class Potion : public Item
+{
+    int effectType;
+    int magnitude;
+
+    public:
+    Potion(string name="Potion", bool essesntial=false, int effectType=HEALTH_REGEN, int magnitude=50) : Item(name, essential), effectType(effectType), magnitude(magnitude) {}
+
+    void ApplyEffect(Player& player);
 };
 
 struct GlobalInfo
@@ -70,6 +94,8 @@ struct GlobalInfo
     const int JUMP_KEY = KEY_SPACE;
     const int SPRINT_KEY = KEY_LEFT_SHIFT;
     const int ATTACK_KEY = KEY_LEFT_CONTROL;
+    const int INV_1 = KEY_ONE;
+    const int INV_2 = KEY_TWO;
 
     const string MODELS_FOLDER_PATH = "./assets/models"; 
     const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
@@ -84,9 +110,11 @@ struct GlobalInfo
     Scene scene;
     float dT;
 
-    void Shade();
-    void LoadThings();
-    void UnloadThings();
+    Potion HealthWeak, HealthMid, HealthPotent;
+    Potion StaminaWeak, StaminaMid, StaminaPotent;
+    Potion Strength;
+
+    void Shade(), LoadThings(), PlayerInfo(), Assets(), UnloadThings();
     private:
     GlobalInfo() {} 
 };
@@ -190,35 +218,33 @@ class Text : public RectTransform
     void _Color(Color newColor) { color = newColor; }   
     string _Text() { return text; }
     void _Text(string newText) { text = newText; }
-
-    string Name() { return name; }
-    Rectangle Rect() { return rect; }
-    
-    void Name(string name) { this->name = name; }
-    void Rect(Rectangle rect) { this->rect = rect; }
 };
 
-class Button : public RectTransform
+class Banner : virtual public RectTransform
 {
+    protected:
+
     Text text;
     Color backColor;
 
     public:
-    Button(string name = "Button Object", string text = "Text", Vector2 position = {0, 0}, Vector2 dimension = {0, 0}, float textSize = 10, Color color = BLACK) : RectTransform(name, position, dimension), text(name, text, {10, 10}, {textSize, 0}), backColor(color) {}
+    Banner(string name = "Banner Object", string text = "Text", Vector2 position = {0, 0}, Vector2 dimension = {0, 0}, float textSize = 10, Color color = BLACK) 
+    : RectTransform(name, position, dimension), text(name, text, {10, 10}, {textSize, 0}), backColor(color) {}
 
     Color BackColor() { return backColor; }
     void BackColor(Color newColor) { backColor = newColor; }
     Text& _Text() { return text; }
     void _Text(Text newText) { text = newText; }
+};
+
+class Button : public Banner, virtual public RectTransform
+{
+    public:
+    Button(string name = "Button Object", string text = "Text", Vector2 position = {0, 0}, Vector2 dimension = {0, 0}, float textSize = 10, Color color = BLACK) 
+    : RectTransform(name, position, dimension), Banner(name, text, position, dimension, textSize, color) {}
 
     bool IsHovering();
     bool IsClicked();
-
-    string Name() { return name; }
-    Rectangle Rect() { return rect; }
-    
-    void Name(string name) { this->name = name; }
-    void Rect(Rectangle rect) { this->rect = rect; }
 };
 
 struct UIGrid
@@ -245,19 +271,24 @@ class SaveSystem
     void LoadScene(Scene& scene);
 };
 
-class Item
-{
-
-};
-
-class Potion : public Item
-{
-
-};
-
 class Inventory
 {
+    static const int MAX_ITEMS = 67;
+    static const int MAX_SLOTS = 2;
 
+    Item **items[MAX_SLOTS];
+    int itemsCount[MAX_SLOTS] = {};
+    
+    public:
+
+    Inventory() : items({nullptr, nullptr}), itemsCount({0,0}) {}
+    ~Inventory();
+
+    void AddItem(Item* item);
+    void RemoveItem(int idx);
+    int FindItem(string name);
+
+    friend class Player;
 };
 
 class Character : public TransformMI
@@ -272,19 +303,15 @@ class Character : public TransformMI
     float frameTimer = 0.0f, frameWidth[7] = {};  
     int currentFrame = 0, currDir = 0;
 
-    float maxHealth, currHealth, 
-    speed=1,
-    speedMultiplier = 1.0f;
-    Vector3 target={0,0,0};
-    float yVelocity=0;
-    int state=0;
+    float maxHealth, currHealth, speed, speedMultiplier;
+    Vector3 target;
+    float yVelocity;
+    int state, damage, currDamage;
 
     public:
-    Character(string name = "RJoe", float maxHealth=100, float speed=1, Vector3 position={0,0,0}, Vector3 target={0,0,0})
-    : TransformMI(name, position, {0,0,0}, 1), maxHealth(maxHealth), currHealth(maxHealth), speed(speed), target(target)
-    {
-
-    }
+    Character(string name = "RJoe", float maxHealth=100, float speed=1, Vector3 position={0,0,0}, Vector3 target={0,0,0}, int damage = 10)
+    : TransformMI(name, position, {0,0,0}, 1), maxHealth(maxHealth), currHealth(maxHealth), speed(speed), target(target),
+    yVelocity(0), state(0), damage(damage), currDamage(damage) {}
     virtual ~Character() = 0;
 
     virtual float MaxHealth() { return maxHealth; }
@@ -298,20 +325,25 @@ class Character : public TransformMI
     virtual void Target(Vector3 value) { target= value; }
 
     virtual void Update();
+    virtual void UIUpdate();
     virtual void DrawCharacter() {}
 };
 
 class Player : public Character
 {
+    float maxStamina, currStamina;
     Ray groundRay;
     RayCollision groundInfo;
-    bool hasJumped = false;
+    bool hasJumped;
     Camera3D camera;
-    float camDist = 2;
+    float camDist;
+    map<int, float> effects;
+    Inventory inventory;
 
     public:
-    Player(string name="Abu Huraira", float maxHealth=200, float speed=2, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
-    : Character(name, maxHealth, speed, position, target) {
+    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float speed=4, int damage = 10, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
+    : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), currStamina(maxStamina)
+    {
         camera.fovy = 95.0f;
         camera.position = {position.x, position.y+camDist, position.z+camDist};
         camera.target = position;
@@ -322,30 +354,44 @@ class Player : public Character
 
     float MaxHealth() { return maxHealth; }
     float CurrHealth() { return currHealth; }
+    float CurrStamina() { return currStamina; }
     float Speed() { return speed; }
     Vector3 Target() { return target; }
     bool IsGrounded() { return isGrounded; }
     Camera3D Camera() { return camera; }
+    
+    void AddItem(Item* value) 
+    {
+        try
+        { inventory.AddItem(value); }
+        catch(const failed_execution& e) { throw; }
+        catch(const out_of_space& e) { throw; }
+        catch(const empty_collection& e) { throw; }
+        catch(const out_of_range& e) { throw; }
+        catch(...) { throw; }
+        UIUpdate();
+    }
+
     void CurrHealth(float value) { currHealth = value; }
     void Speed(float value) { this->speed = value; }
     void Target(Vector3 value) { target= value; }
+    void _Inventory(Inventory value) { inventory = value; }
 
     void CalculateIsGrounded();
-    void Update();
+    void Update(), UpdateEffects();
+    int i1, i2; // inventory ui indices
+
+    void UIUpdate();
     void DrawCharacter();
 
-    friend void GlobalInfo::LoadThings();
+    friend void GlobalInfo::PlayerInfo();
     friend void GlobalInfo::UnloadThings();
+    friend void Potion::ApplyEffect(Player&);
 };
 
 class NPC : public Character
 {
-
-};
-
-class Enemy : public NPC
-{
-
+    int relation;
 };
 
 class Merchant : public NPC

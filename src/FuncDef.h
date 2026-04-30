@@ -300,6 +300,7 @@ void Scene::DrawScene()
     {
         Box* box = objects[i];
         DrawModel(box->_Model(), box->Position(), box->Size(), WHITE);
+        DrawModelWires(box->_Model(), box->Position(), box->Size(), BLACK);
     }
     player->DrawCharacter();
 
@@ -312,6 +313,7 @@ void Scene::DrawSceneUI()
         RectTransform* uiElement = ui[i];
         Button* button = dynamic_cast<Button*>(uiElement);
         Text* text = dynamic_cast<Text*>(uiElement);
+        Banner* banner = dynamic_cast<Banner*>(uiElement);
 
         if (button != nullptr)
         {
@@ -321,6 +323,11 @@ void Scene::DrawSceneUI()
         else if (text != nullptr)
         {
             DrawText(text->_Text().c_str(), text->Rect().x, text->Rect().y, 20, text->_Color());
+        }
+        else if (banner != nullptr)
+        {
+            DrawRectangleRec(banner->Rect(), banner->BackColor());
+            DrawText(banner->_Text()._Text().c_str(), banner->Rect().x + banner->_Text().Rect().x, banner->Rect().y + banner->_Text().Rect().y, banner->_Text().Rect().width, WHITE);    
         }
     }
 }
@@ -449,6 +456,13 @@ UIGrid::~UIGrid()
     delete[] elements;
 }
 
+// Potion ==================================================================================================================================================================================
+
+void Potion::ApplyEffect(Player& player)
+{
+    player.effects[effectType] = magnitude;
+}
+
 // SaveSystem ==================================================================================================================================================================================
 // <NAME> <ASSET_NAME> <POS_X> <POS_Y> <POS_Z> <ROT_X> <ROT_Y> <ROT_Z> <SCALE>
 
@@ -464,7 +478,7 @@ void SaveSystem::SaveScene(Scene& scene)
             file<<obj.Name()<<" "<<(obj.AssetName()==""?gI.DEFAULT_MODEL_NAME:obj.AssetName())<<" "
             <<obj.Position().x<<" "<<obj.Position().y<<" "<<obj.Position().z<<" "
             <<obj.Rotation().x<<" "<<obj.Rotation().y<<" "<<obj.Rotation().z<<" "
-            <<obj.Size()<<" EL";
+            <<obj.Size()<<" EL : --> ";
             if (i<scene.objectCount-1) file<<endl;
         }
     }
@@ -485,11 +499,15 @@ void SaveSystem::LoadScene(Scene& scene)
             file>>name;
             // cout<<name;
             if (name == "") return;
+            
             file>>assetName>>position.x>>position.y>>position.z>>rotation.x>>rotation.y>>rotation.z>>scale;
+
             cout<<name<<" "<<assetName<<" "
             <<position.x<<" "<<position.y<<" "<<position.z<<" "
             <<rotation.x<<" "<<rotation.y<<" "<<rotation.z<<" "<<scale<<endl;
+
             scene.AddObject(new Box(name, position, rotation, scale, assetName));
+
             string line;
             getline(file, line);
         }
@@ -503,35 +521,8 @@ void GlobalInfo::Shade()
     
 }
 
-void GlobalInfo::LoadThings()
+void GlobalInfo::PlayerInfo()
 {
-
-    UIGrid grid({gI.SCREEN_WIDTH-300, 100}, 45);
-    
-    models[DEFAULT_MODEL_NAME] = LoadModelFromMesh(GenMeshCube(1, 1, 1));
-    textures[DEFAULT_MODEL_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, DARKPURPLE, WHITE));
-
-    FilePathList files = LoadDirectoryFiles(MODELS_FOLDER_PATH.c_str());
-    for (int i = 0; i<(int)files.count; i++)
-    {
-        if (IsFileExtension(files.paths[i], ".obj") || IsFileExtension(files.paths[i], ".gltf"))
-        {
-            try
-            {
-                string name = GetFileNameWithoutExt(files.paths[i]);
-                models[name] = LoadModel(files.paths[i]);
-                if (FileExists((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str()))
-                    textures[name] = LoadTexture((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str());
-                scene.AddUIObject(new Button("Spawner"+to_string(i), name, {0,0}, {300, 40}, 20, DARKGRAY));
-                grid.AddElement(scene.ui[scene.uiCount-1]);
-            }
-            catch(...)
-            {
-                cout<<"MASLA!!!\n";
-            }
-        }
-    }
-    grid.OrderUI(VERTICAL);
     gI.scene.player = new Player();
     scene.player->anims[0][0] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorDownIdle.png)").c_str());
     scene.player->anims[0][1] = LoadTexture((SPRITES_FOLDER_PATH+R"(/WarriorLeftIdle.png)").c_str());
@@ -570,7 +561,85 @@ void GlobalInfo::LoadThings()
     scene.player->frameWidth[3] = scene.player->anims[3][0].width / 6;
     scene.player->frameWidth[4] = scene.player->anims[4][0].width / 5;
 
+    int buttonSize = 75;
+    UIGrid grid({(float)buttonSize/10.0f, 1*SCREEN_HEIGHT/3-50}, 11.0f * (float)buttonSize/10.0f);
+    scene.AddUIObject(new Banner("PL_INV", "", Vector2Zero(), (Vector2){buttonSize, buttonSize}, 50, RED));
+    scene.AddUIObject(new Banner("PL_INV_1", "", Vector2Zero(), (Vector2){buttonSize, buttonSize}, 50, RED));
+    
+    scene.player->i1 = scene.uiCount;
+    scene.AddUIObject(new Text("PL_INV_T", to_string(scene.player->i1), (Vector2){(float)buttonSize/10.0f + buttonSize + 5, 1*SCREEN_HEIGHT/3-50}, {60, 50}, BLACK));
+    scene.player->i2 = scene.uiCount;
+    scene.AddUIObject(new Text("PL_INV_T_1", to_string(scene.player->i2), (Vector2){(float)buttonSize/10.0f + buttonSize + 5, 1*SCREEN_HEIGHT/3 - 50 + 11.0f * (float)buttonSize/10.0f}, {60, 50}, BLACK));
+
+    grid.AddElement(scene.ui[scene.FindUIObjectIndex("PL_INV")]);
+    grid.AddElement(scene.ui[scene.FindUIObjectIndex("PL_INV_1")]);
+    grid.OrderUI(VERTICAL);
+
+    try
+    {
+        scene.player->AddItem(new Potion(HealthMid));
+
+        scene.player->AddItem(new Potion(StaminaPotent));
+    }
+    catch(const failed_execution& e)
+    {
+        cout << e.what() << '\n';
+    }
+    catch(const out_of_space& e)
+    {
+        cout << e.what() << '\n';
+    }
+    catch(const empty_collection& e)
+    {
+        cout << e.what() << '\n';
+    }
+    catch(const out_of_range& e)
+    {
+        cout << e.what() << '\n';
+    }
+    catch(...)
+    {
+        cout <<"Unknown Exception\n";
+    }
+}
+
+void GlobalInfo::Assets()
+{
+    UIGrid grid({gI.SCREEN_WIDTH-300, 100}, 45);
+    
+    models[DEFAULT_MODEL_NAME] = LoadModelFromMesh(GenMeshCube(1, 1, 1));
+    textures[DEFAULT_MODEL_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, DARKPURPLE, WHITE));
+    
+    FilePathList files = LoadDirectoryFiles(MODELS_FOLDER_PATH.c_str());
+    for (int i = 0; i<(int)files.count; i++)
+    {
+        if (IsFileExtension(files.paths[i], ".obj") || IsFileExtension(files.paths[i], ".gltf"))
+        {
+            string name = GetFileNameWithoutExt(files.paths[i]);
+            models[name] = LoadModel(files.paths[i]);
+            if (FileExists((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str()))
+                textures[name] = LoadTexture((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str());
+            scene.AddUIObject(new Button("Spawner"+to_string(i), name, {0,0}, {300, 40}, 20, DARKGRAY));
+            grid.AddElement(scene.ui[scene.uiCount-1]);
+        
+        }
+    }
+    grid.OrderUI(VERTICAL);
     UnloadDirectoryFiles(files);
+
+    HealthWeak = Potion("Weak Health Potion", false, HEALTH_REGEN, 10);
+    HealthMid = Potion("Mid Health Potion", false, HEALTH_REGEN, 30);
+    HealthPotent = Potion("Potent Health Potion", false, HEALTH_REGEN, 60);
+
+    StaminaWeak = Potion("Weak Stamina Potion", false, STAMINA_REGEN, 10);
+    StaminaMid = Potion("Mid Stamina Potion", false, STAMINA_REGEN, 30);
+    StaminaPotent = Potion("Potent Stamina Potion", false, STAMINA_REGEN, 60);
+}
+
+void GlobalInfo::LoadThings()
+{
+    Assets();
+    PlayerInfo();
 }
 
 void GlobalInfo::UnloadThings()
@@ -584,7 +653,7 @@ void GlobalInfo::UnloadThings()
         UnloadTexture(tex.second);
     }
 
-    for (int i = 0; i < 4; i++) 
+    for (int i = 0; i <= 4; i++) 
     {
         for (int j = 0; j < 4; j++) 
         {
@@ -625,15 +694,101 @@ void Character::Update()
             currDir = (direction.z > 0) ? DOWN : UP;
     }
 
-    cout<<"CURR DIR: "<<currDir<<endl;
+}
+
+void Character::UIUpdate()
+{
+
 }
 
 Character::~Character() {}
 
+// Inventory ==================================================================================================================================================================================
+
+int Inventory::FindItem(string name)
+{
+    for (int i=0; i<MAX_SLOTS; i++)
+    {
+        if (itemsCount[i]<=0) continue;
+        if (items[i][0]->Name() != name) continue;
+
+        return i;
+    }
+
+    return -1;
+}
+
+void Inventory::AddItem(Item* item)
+{
+    int idx = FindItem(item->Name());
+
+    if (idx != -1)
+    {
+        if (itemsCount[idx]>=MAX_ITEMS) throw out_of_space("Inventory Slot Full");
+
+        Item** newItems = new Item*[itemsCount[idx] + 1];
+
+        for (int i = 0; i < itemsCount[idx]; i++) {
+            newItems[i] = items[idx][i];
+        }
+
+        newItems[itemsCount[idx]] = item;
+        delete[] items[idx];
+        items[idx] = newItems;
+        itemsCount[idx]++;
+        return;
+    }
+
+    for (int i = 0; i<MAX_SLOTS; i++)
+    {
+        if (itemsCount[i]<=0) 
+        {
+            items[i] = new Item*[1];
+            items[i][0] = item;
+            itemsCount[i]=1;
+
+            return;
+        }
+    }
+    
+    throw failed_execution("Failed to Add Item " + item->Name());
+}
+
+void Inventory::RemoveItem(int idx)
+{
+    if (idx>=MAX_SLOTS || idx<0) throw out_of_range("Invalid Slot Index");
+
+    if (itemsCount[idx]<=0) throw empty_collection("Slot Empty");
+
+    Item** newItems = new Item*[itemsCount[idx] - 1];
+
+    for (int i = 0; i < itemsCount[idx]; i++) 
+    {
+        if (i == idx) continue;
+
+        newItems[i] = items[idx][i];
+    }
+
+    delete[] items[idx];
+    items[idx] = newItems;
+    itemsCount[idx]--;
+}
+
+Inventory::~Inventory()
+{
+    for (int i = 0; i<itemsCount[0]; i++)
+        delete items[i];
+    
+    for (int i = 0; i<itemsCount[1]; i++)
+        delete items[i];
+}
+
 // Player ==================================================================================================================================================================================
 
 float jT=0, yPos=0;
-void Player::Update()
+bool isSprinting;
+
+void Player::Update() 
 {
     if (currHealth == 0)
     {
@@ -649,11 +804,11 @@ void Player::Update()
     Vector3 currentTarget = target;
     target = (position + inputDir);
     directionRay.direction = Normalize(target-position);
-
+    
     for (int i = 0; i<gI.scene.objectCount; i++) 
     {
         rayInfo = GetRayCollisionBox(directionRay, gI.scene.objects[i]->Boundary());
-
+        
         if (rayInfo.hit)
         {
             if (rayInfo.distance<=0.5f)
@@ -664,7 +819,10 @@ void Player::Update()
         }
     }
     
-    speedMultiplier = 2.0f;
+    isSprinting = (IsKeyDown(gI.SPRINT_KEY) && currStamina>0 ? true : false);
+
+    speedMultiplier = (isSprinting?2:1);
+    currStamina -= (isSprinting&&state==MOVING? gI.dT*5.0f:0);
     Character::Update();
 
     camera.position = {position.x, position.y+camDist, position.z+camDist};
@@ -682,7 +840,6 @@ void Player::Update()
     {
         if (state != ATTACKING) state = (Magnitude(inputDir) > 0) ? state = MOVING: state = IDLE;
         
-        cout<<"GROUND!!!\n";
         if (IsKeyPressed(gI.JUMP_KEY))
         {
             hasJumped = true;
@@ -721,7 +878,7 @@ void Player::DrawCharacter()
 
     // If not moving, reset to first frame
     frameTimer += gI.dT;
-    if (frameTimer >= 0.1f) 
+    if (frameTimer >= 0.1f/(isSprinting?1.5f:1))
     { 
         frameTimer = 0.0f;
         if (anim[currDir].id > 0 && anim[currDir].width > 0)
@@ -742,8 +899,6 @@ void Player::DrawCharacter()
         }
         else currentFrame = 0;
     }
-
-    cout<<"CURRENT FRAME : "<<currentFrame;
     
     Rectangle sourceRec = {
         (float)currentFrame * frameWidth[i],
@@ -751,7 +906,7 @@ void Player::DrawCharacter()
         (float)frameWidth[i],
         (float)anim[currDir].height
     };
-
+    // DrawSphere(position, 0.1f, BLACK);
     DrawBillboardRec(
         camera,
         anim[currDir],
@@ -765,8 +920,13 @@ void Player::DrawCharacter()
 void Player::CalculateIsGrounded()
 {
     isGrounded = false;
-    if (position.y<=size/2) isGrounded = true;
+    if (position.y<=size/2+0.1f)
+    {
+         isGrounded = true;
+         position.y = size/2+0.1f;
+         return;
 
+    }
     // for (int i = 0; i<gI.scene.objectCount; i++) 
     // {
     //     groundInfo = GetRayCollisionBox(groundRay, gI.scene.objects[i]->Boundary());
@@ -776,19 +936,100 @@ void Player::CalculateIsGrounded()
     //         if (groundInfo.distance<=0.2f)
     //         {
     //             isGrounded = true;
-    //             // position.y = groundInfo.point.y + groundInfo.distance;
-    //             // break;
+    //             break;
     //         }
             
     //     }
     // }
 }
 
+void Player::UIUpdate()
+{
+    Text* tx1 = dynamic_cast<Text*>(gI.scene.ui[i1]);
+    Text* tx2 = dynamic_cast<Text*>(gI.scene.ui[i2]);
 
+    if (tx1) 
+        tx1->_Text((inventory.itemsCount[0]==0?"No Item In Slot": ( inventory.items[0][0]->Name()+" x"+to_string(inventory.itemsCount[0]) ) ) );
+    
+    if (tx2)
+        tx2->_Text((inventory.itemsCount[1]==0?"No Item In Slot": ( inventory.items[1][0]->Name()+" x"+to_string( inventory.itemsCount[1]) ) ) );
+    
+}
 
+void Player::UpdateEffects()
+{
+    if (IsKeyPressed(gI.INV_1))
+    {
+        if (inventory.itemsCount[0]>0)
+        {
+            Potion* potion = dynamic_cast<Potion*>(inventory.items[0][0]);
+            if (potion)
+            {
+                potion->ApplyEffect(*this);
+                inventory.RemoveItem(inventory.FindItem(potion->Name()));
+                UIUpdate();
+                delete potion;
+            }
+        }
+    }
 
+    if (IsKeyPressed(gI.INV_2))
+    {
+        if (inventory.itemsCount[1]>0)
+        {
+            Potion* potion = dynamic_cast<Potion*>(inventory.items[1][0]);
+            if (potion)
+            {
+                potion->ApplyEffect(*this);
+                inventory.RemoveItem(inventory.FindItem(potion->Name()));
+                UIUpdate();
+                delete potion;
+            }
+        }
+    }
 
+    map<int, float> temp = effects;
+    vector<int> damageBoosts;
+    
+    for (auto effect : temp)
+    {
+        switch(effect.first)
+        {
+            case HEALTH_REGEN:
+            {
+                currHealth = Clamp(currHealth+effect.second, 0, maxHealth);
+                effects.erase(effect.first);
+                break;
+            }
 
+            case STAMINA_REGEN:
+            {
+                currStamina = Clamp(currStamina+effect.second, 0, maxStamina);
+                effects.erase(effect.first);
+                break;
+            }
+
+            case STRENGTH_BOOST:
+            {
+                if (effect.second<=0)
+                {
+                    effects.erase(effect.first);
+                    currDamage = damage;
+                    continue;
+                }
+
+                damageBoosts.push_back(effect.second);
+                effects[effect.first] -= gI.dT;
+                break;
+            }
+        }
+    }
+
+    for (int i = 0; i < damageBoosts.size(); i++)
+    {
+        currDamage = damage + 10;
+    }
+}
 
 
 

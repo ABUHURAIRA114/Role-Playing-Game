@@ -1,13 +1,45 @@
-Gameobject1 Crate_2 62.432 0 135.449 0 0 0 1 EL
-BoxObject DEF_MOD -14.1103 0 4.18645 -3.47636 -0.22442 0 0.373483 EL
-Gameobject7 Balcony_Cross_Corner -9.41945 0 -10.8763 -2.91061 3.34216 0 1 EL
-Gameobject Balcony_Cross_Corner 0 -10.6383 0 0 0 0 1 EL
-BoxObject1 DEF_MOD 0 -8.68064 -3.66278 -4.68358 -0.103698 0 1 EL
-BoxObject2 DEF_MOD 11.5691 -40.0866 -0.825779 0 0 0 40.4319 EL
-BoxObject3 DEF_MOD 0 -5.34376 9.11772 0 0 0 1 EL
-Gameobject2 Balcony_Cross_Corner 8.48951 0 34.511 0 0 0 1 EL
-Gameobject3 Crate_2 -8.17249 0 -33.5375 0.0963663 -24.837 0 15.1469 EL
-Gameobject4 Balcony_Cross_Corner 5.00432 0 2.87257 0 0 0 1 EL
-Gameobject5 Crate -7.345 0 -3.33039 0 0 0 1 EL
-Gameobject6 Crate -5.57249 0 6.44678 0 0 0 1 EL
-Gameobject8 Crate_2 7.18977 0 -1.88857 0 0 0 1 EL
+Wall_North DEF_MOD 1.84791 1 -6.85043 0 0 0 1 EL : --> 
+Wall_South DEF_MOD 0 1 20 0 0 0 1 EL : --> 
+Wall_East DEF_MOD 20 1 0 0 0 0 1 EL : --> 
+Wall_West DEF_MOD -20 1 0 0 0 0 1 EL : --> 
+Wall_NE_Corner DEF_MOD 20 1 -20 0 0 0 1 EL : --> 
+Wall_NW_Corner DEF_MOD -20 1 -20 0 0 0 1 EL : --> 
+Wall_SE_Corner DEF_MOD 20 1 20 0 0 0 1 EL : --> 
+Wall_SW_Corner DEF_MOD -20 1 20 0 0 0 1 EL : --> 
+Pillar_NE DEF_MOD 8 1 -8 0 0 0 2 EL : --> 
+Pillar_NW DEF_MOD -8 1 -8 0 0 0 2 EL : --> 
+Pillar_SE DEF_MOD 8 1 8 0 0 0 2 EL : --> 
+Pillar_SW DEF_MOD -8 1 8 0 0 0 2 EL : --> 
+CoverBlock_N1 DEF_MOD -4 0.5 -13 0 0 0 1.5 EL : --> 
+CoverBlock_N2 DEF_MOD 4 0.5 -13 0 0 0 1.5 EL : --> 
+CoverBlock_S1 DEF_MOD -4 0.5 13 0 0 0 1.5 EL : --> 
+CoverBlock_S2 DEF_MOD 4 0.5 13 0 0 0 1.5 EL : --> 
+CoverBlock_E1 DEF_MOD 13 0.5 -4 0 0 0 1.5 EL : --> 
+CoverBlock_E2 DEF_MOD 13 0.5 4 0 0 0 1.5 EL : --> 
+CoverBlock_W1 DEF_MOD -13 0.5 -4 0 0 0 1.5 EL : --> 
+CoverBlock_W2 DEF_MOD -13 0.5 4 0 0 0 1.5 EL : --> 
+Crate_Center_A Crate 1.83717 0 -2.20462 0 0 0 1 EL : --> 
+Crate_Center_B Crate -5.04247 0 2.5014 0 0 0 1 EL : --> 
+Crate_Center_C Crate 0 0 4.61031 0 0.785 0 1 EL : --> 
+Crate2_North_A Crate_2 -5 0 -16 0 0 0 1 EL : --> 
+Crate2_North_B Crate_2 5 0 -16 0 0.3 0 1 EL : --> 
+Crate2_South_A Crate_2 -5 0 16 0 0 0 1 EL : --> 
+Crate2_South_B Crate_2 5 0 16 0 -0.4 0 1 EL : --> 
+Crate2_East_A Crate_2 16 0 -5 0 1.5708 0 1 EL : --> 
+Crate2_East_B Crate_2 16 0 5 0 1.5708 0 1 EL : --> 
+Crate2_West_A Crate_2 -16 0 -5 0 1.5708 0 1 EL : --> 
+Crate2_West_B Crate_2 -16 0 5 0 -1.5708 0 1 EL : --> 
+Balcony_Mid_N Balcony_Cross_Corner 0 0 -10 0 0 0 1 EL : --> 
+Balcony_Mid_S Balcony_Cross_Corner 0 0 10 0 3.14159 0 1 EL : --> 
+Balcony_Mid_E Balcony_Cross_Corner 10 0 0 0 1.5708 0 1 EL : --> 
+Balcony_Mid_W Balcony_Cross_Corner -10 0 0 0 -1.5708 0 1 EL : --> 
+Wall_N DEF_MOD 0 1 -20 0 0 0 1 EL : --> 
+Wall_S DEF_MOD 0 1 20 0 0 0 1 EL : --> 
+Wall_E DEF_MOD 20 1 0 0 0 0 1 EL : --> 
+Wall_W DEF_MOD -20 1 0 0 0 0 1 EL : --> 
+Pillar_0 DEF_MOD -8 1 -8 0 0 0 2 EL : --> 
+Pillar_1 DEF_MOD 8 1 -8 0 0 0 2 EL : --> 
+Pillar_2 DEF_MOD -8 1 8 0 0 0 2 EL : --> 
+Pillar_3 DEF_MOD 8 1 8 0 0 0 2 EL : --> 
+BoxObject DEF_MOD -2.53499 0 -0.874937 -0.635248 -1.1803 0 1 EL : --> 
+Gameobject Balcony_Cross_Corner 0 0 5.41927 0 0 0 1 EL : --> 
