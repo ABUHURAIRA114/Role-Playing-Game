@@ -561,19 +561,39 @@ void GlobalInfo::PlayerInfo()
     scene.player->frameWidth[3] = scene.player->anims[3][0].width / 6;
     scene.player->frameWidth[4] = scene.player->anims[4][0].width / 5;
 
-    int buttonSize = 75;
-    UIGrid grid({(float)buttonSize/10.0f, 1*SCREEN_HEIGHT/3-50}, 11.0f * (float)buttonSize/10.0f);
-    scene.AddUIObject(new Banner("PL_INV", "", Vector2Zero(), (Vector2){buttonSize, buttonSize}, 50, RED));
-    scene.AddUIObject(new Banner("PL_INV_1", "", Vector2Zero(), (Vector2){buttonSize, buttonSize}, 50, RED));
     
-    scene.player->i1 = scene.uiCount;
-    scene.AddUIObject(new Text("PL_INV_T", to_string(scene.player->i1), (Vector2){(float)buttonSize/10.0f + buttonSize + 5, 1*SCREEN_HEIGHT/3-50}, {60, 50}, BLACK));
-    scene.player->i2 = scene.uiCount;
-    scene.AddUIObject(new Text("PL_INV_T_1", to_string(scene.player->i2), (Vector2){(float)buttonSize/10.0f + buttonSize + 5, 1*SCREEN_HEIGHT/3 - 50 + 11.0f * (float)buttonSize/10.0f}, {60, 50}, BLACK));
+    int barWidth = BAR_WIDTH,
+    barHeight = 25,
+    margin = 20,
+    padding = 2;
+
+    float posX = margin,
+    posY = margin + 15.0f;
+
+    scene.AddUIObject(new Banner("HEALTH_BG", "", (Vector2){posX, posY}, (Vector2){barWidth, barHeight}, 0, BLACK));
+    scene.AddUIObject(new Banner("STAMINA_BG", "", (Vector2){posX, posY + barHeight + 15}, (Vector2){barWidth, barHeight}, 0, BLACK));
+
+    scene.player->healthBarIdx = scene.uiCount;
+    scene.AddUIObject(new Banner("HEALTH_BAR", "", (Vector2){posX + padding, posY + padding}, (Vector2){barWidth - 2*padding, barHeight - 2*padding}, 0, RED));
+    scene.player->staminaBarIdx = scene.uiCount;
+    scene.AddUIObject(new Banner("STAMINA_BAR", "", (Vector2){posX + padding, posY + barHeight + 15 + padding}, (Vector2){barWidth - 2*padding, barHeight - 2*padding}, 0, GREEN));
+    
+    int buttonSize = 75;
+    UIGrid grid({margin, (float)buttonSize/10.0f + 1.5f*buttonSize}, 11.0f * (float)buttonSize/10.0f);
+
+    scene.AddUIObject(new Banner("PL_INV", "", Vector2Zero(), (Vector2){buttonSize, buttonSize}, 50, DARKBROWN));
+    scene.AddUIObject(new Banner("PL_INV_1", "", Vector2Zero(), (Vector2){buttonSize, buttonSize}, 50, DARKBROWN));
 
     grid.AddElement(scene.ui[scene.FindUIObjectIndex("PL_INV")]);
     grid.AddElement(scene.ui[scene.FindUIObjectIndex("PL_INV_1")]);
+
     grid.OrderUI(VERTICAL);
+
+    scene.player->i1 = scene.uiCount;
+    scene.AddUIObject(new Text("PL_INV_T", to_string(scene.player->i1), (Vector2){(float)buttonSize/10.0f + buttonSize + 5, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
+    scene.player->i2 = scene.uiCount;
+    scene.AddUIObject(new Text("PL_INV_T_1", to_string(scene.player->i2), (Vector2){(float)buttonSize/10.0f + buttonSize + 5, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
+
 
     try
     {
@@ -693,11 +713,6 @@ void Character::Update()
         else if (az > 0.05f)
             currDir = (direction.z > 0) ? DOWN : UP;
     }
-
-}
-
-void Character::UIUpdate()
-{
 
 }
 
@@ -822,7 +837,6 @@ void Player::Update()
     isSprinting = (IsKeyDown(gI.SPRINT_KEY) && currStamina>0 ? true : false);
 
     speedMultiplier = (isSprinting?2:1);
-    currStamina -= (isSprinting&&state==MOVING? gI.dT*5.0f:0);
     Character::Update();
 
     camera.position = {position.x, position.y+camDist, position.z+camDist};
@@ -927,33 +941,57 @@ void Player::CalculateIsGrounded()
          return;
 
     }
-    // for (int i = 0; i<gI.scene.objectCount; i++) 
-    // {
-    //     groundInfo = GetRayCollisionBox(groundRay, gI.scene.objects[i]->Boundary());
+    for (int i = 0; i<gI.scene.objectCount; i++) 
+    {
+        groundInfo = GetRayCollisionBox(groundRay, gI.scene.objects[i]->Boundary());
 
-    //     if (groundInfo.hit)
-    //     {
-    //         if (groundInfo.distance<=0.2f)
-    //         {
-    //             isGrounded = true;
-    //             break;
-    //         }
+        if (groundInfo.hit)
+        {
+            if (groundInfo.distance<=0.2f)
+            {
+                isGrounded = true;
+                break;
+            }
             
-    //     }
-    // }
+        }
+    }
 }
 
-void Player::UIUpdate()
+void Player::StateUpdate()
 {
-    Text* tx1 = dynamic_cast<Text*>(gI.scene.ui[i1]);
-    Text* tx2 = dynamic_cast<Text*>(gI.scene.ui[i2]);
+    Banner* bar = dynamic_cast<Banner*>(gI.scene.ui[healthBarIdx]);
+    
+    if (bar)
+    {
+        Rectangle rect = bar->Rect();
+        rect.width = (currHealth/maxHealth)*(gI.BAR_WIDTH-3);
+        bar->Rect(rect);
+    }
+    
+    bar = dynamic_cast<Banner*>(gI.scene.ui[staminaBarIdx]);
+    
+    if (bar)
+    {
+        Rectangle rect = bar->Rect();
+        rect.width = (currStamina/maxStamina)*(gI.BAR_WIDTH-3);
+        bar->Rect(rect);
+    }
 
-    if (tx1) 
-        tx1->_Text((inventory.itemsCount[0]==0?"No Item In Slot": ( inventory.items[0][0]->Name()+" x"+to_string(inventory.itemsCount[0]) ) ) );
+    currStamina -= (isSprinting&&state!=IDLE? gI.dT*12.0f:0);
+
+    if (!(isSprinting&&state!=IDLE))
+    {
+        currStamina = Clamp(currStamina+ staminaRegenRate*gI.dT, 0, maxStamina);
+    }
+}
+
+void Player::InvUI_Update()
+{
+    Text* tx = dynamic_cast<Text*>(gI.scene.ui[i1]);
+    if (tx) tx->_Text((inventory.itemsCount[0]==0?"No Item In Slot": ( inventory.items[0][0]->Name()+" x"+to_string(inventory.itemsCount[0]) ) ) );
     
-    if (tx2)
-        tx2->_Text((inventory.itemsCount[1]==0?"No Item In Slot": ( inventory.items[1][0]->Name()+" x"+to_string( inventory.itemsCount[1]) ) ) );
-    
+    tx = dynamic_cast<Text*>(gI.scene.ui[i2]);
+    if (tx) tx->_Text((inventory.itemsCount[1]==0?"No Item In Slot": ( inventory.items[1][0]->Name()+" x"+to_string( inventory.itemsCount[1]) ) ) );
 }
 
 void Player::UpdateEffects()
@@ -967,7 +1005,7 @@ void Player::UpdateEffects()
             {
                 potion->ApplyEffect(*this);
                 inventory.RemoveItem(inventory.FindItem(potion->Name()));
-                UIUpdate();
+                InvUI_Update();
                 delete potion;
             }
         }
@@ -982,7 +1020,7 @@ void Player::UpdateEffects()
             {
                 potion->ApplyEffect(*this);
                 inventory.RemoveItem(inventory.FindItem(potion->Name()));
-                UIUpdate();
+                InvUI_Update();
                 delete potion;
             }
         }
@@ -1011,6 +1049,7 @@ void Player::UpdateEffects()
 
             case STRENGTH_BOOST:
             {
+                
                 if (effect.second<=0)
                 {
                     effects.erase(effect.first);

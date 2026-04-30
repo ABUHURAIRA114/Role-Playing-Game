@@ -70,6 +70,7 @@ void Update()
     {
         gI.scene.player->Update();
         gI.scene.player->UpdateEffects();
+        gI.scene.player->StateUpdate();
     }
 }
 
@@ -94,22 +95,22 @@ int main () {
 
             EndMode3D();
 
-            DrawText("Camera", 10, 20, 20, DARKGREEN);
-            DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.sceneCamera.Camera().position.x, gI.scene.sceneCamera.Camera().position.y, gI.scene.sceneCamera.Camera().position.z), 10, 50, 20, DARKBROWN);
-            DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.player->Position().x, gI.scene.player->Position().y,  gI.scene.player->Position().z), 10, 200, 20, DARKBROWN);
-            DrawText(TextFormat("X: %.2f Y: %.2f", gI.scene.player->Target().x, gI.scene.player->Target().y), 10, 230, 20, DARKBROWN);
+            // DrawText("Camera", 10, 20, 20, DARKGREEN);
+            // DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.sceneCamera.Camera().position.x, gI.scene.sceneCamera.Camera().position.y, gI.scene.sceneCamera.Camera().position.z), 10, 50, 20, DARKBROWN);
+            // DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.player->Position().x, gI.scene.player->Position().y,  gI.scene.player->Position().z), 10, 200, 20, DARKBROWN);
+            // DrawText(TextFormat("X: %.2f Y: %.2f", gI.scene.player->Target().x, gI.scene.player->Target().y), 10, 230, 20, DARKBROWN);
             
-            DrawText(text.c_str(), 10, 80, 20, DARKGRAY);
-            DrawText((gI.scene.player->IsGrounded()? "Grounded" : "Not Grounded"), 10, 260, 20, DARKGRAY);
+            // DrawText(text.c_str(), 10, 80, 20, DARKGRAY);
+            // DrawText((gI.scene.player->IsGrounded()? "Grounded" : "Not Grounded"), 10, 260, 20, DARKGRAY);
 
-            if (gI.scene.selected != nullptr)
-            {
-                DrawText("Selected", 10, 110, 20, DARKGREEN);
-                DrawText(TextFormat("Name: %s", gI.scene.selected->Name().c_str()), 10, 140, 20, DARKGREEN);
-                DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.selected->Position().x, gI.scene.selected->Position().y, gI.scene.selected->Position().z), 10, 170, 20, DARKGREEN);
-            }
+            // if (gI.scene.selected != nullptr)
+            // {
+            //     DrawText("Selected", 10, 110, 20, DARKGREEN);
+            //     DrawText(TextFormat("Name: %s", gI.scene.selected->Name().c_str()), 10, 140, 20, DARKGREEN);
+            //     DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.selected->Position().x, gI.scene.selected->Position().y, gI.scene.selected->Position().z), 10, 170, 20, DARKGREEN);
+            // }
             
-            DrawText(to_string(gI.scene.player->CurrStamina()).c_str(), gI.SCREEN_WIDTH/2, gI.SCREEN_HEIGHT/2, 40, DARKGRAY);
+            // DrawText(to_string(gI.scene.player->CurrStamina()).c_str(), gI.SCREEN_WIDTH/2, gI.SCREEN_HEIGHT/2, 40, DARKGRAY);
             
             gI.scene.DrawSceneUI();
 

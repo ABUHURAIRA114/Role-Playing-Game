@@ -82,8 +82,9 @@ struct GlobalInfo
 {
     const int SCREEN_WIDTH = 1920;
     const int SCREEN_HEIGHT = 1080;
-    const int MAX_SPEED = 20;
-    const int WHEEL_SENSITIVITY = 1.0f;
+    const float MAX_SPEED = 20;
+    const float WHEEL_SENSITIVITY = 1.0f;
+    const float BAR_WIDTH = 300;
 
     const int FREE_CAMERA_KEY = MOUSE_BUTTON_RIGHT;
     const int SELECTION_KEY = MOUSE_BUTTON_LEFT;
@@ -325,13 +326,13 @@ class Character : public TransformMI
     virtual void Target(Vector3 value) { target= value; }
 
     virtual void Update();
-    virtual void UIUpdate();
+    virtual void StateUpdate() {}
     virtual void DrawCharacter() {}
 };
 
 class Player : public Character
 {
-    float maxStamina, currStamina;
+    float maxStamina, currStamina, staminaRegenRate, healthRegenRate;
     Ray groundRay;
     RayCollision groundInfo;
     bool hasJumped;
@@ -339,10 +340,11 @@ class Player : public Character
     float camDist;
     map<int, float> effects;
     Inventory inventory;
+    int healthBarIdx, staminaBarIdx;
 
     public:
-    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float speed=4, int damage = 10, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
-    : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), currStamina(maxStamina)
+    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 1, float healthRegenRate = 0.5f, float speed=4, int damage = 10, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
+    : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), currStamina(maxStamina), staminaRegenRate(staminaRegenRate), healthRegenRate(healthRegenRate)
     {
         camera.fovy = 95.0f;
         camera.position = {position.x, position.y+camDist, position.z+camDist};
@@ -369,7 +371,7 @@ class Player : public Character
         catch(const empty_collection& e) { throw; }
         catch(const out_of_range& e) { throw; }
         catch(...) { throw; }
-        UIUpdate();
+        InvUI_Update();
     }
 
     void CurrHealth(float value) { currHealth = value; }
@@ -381,7 +383,8 @@ class Player : public Character
     void Update(), UpdateEffects();
     int i1, i2; // inventory ui indices
 
-    void UIUpdate();
+    void InvUI_Update();
+    void StateUpdate();
     void DrawCharacter();
 
     friend void GlobalInfo::PlayerInfo();
