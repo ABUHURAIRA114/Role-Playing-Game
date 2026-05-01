@@ -306,9 +306,34 @@ void Scene::DrawScene()
     for (int i = 0; i < npcCount; i++) npcs[i]->DrawCharacter();
     player->DrawCharacter();
     
-    for (auto bb : billboards)
+    std::vector<std::pair<float, const AnimationData*>> sortedBillboards;
+    sortedBillboards.reserve(billboards.size()); // Pre-allocate memory for speed
+
+    // 2. Calculate distances and populate the list
+    for (const auto& bb : billboards) 
     {
-        DrawBillboardRec(bb.second.camera, bb.second.frame, bb.second.source, bb.second.position, bb.second.size, bb.second.color);
+        // Calculate vector from the camera to the billboard
+        float dx = bb.second.camera.position.x - bb.second.position.x;
+        float dy = bb.second.camera.position.y - bb.second.position.y;
+        float dz = bb.second.camera.position.z - bb.second.position.z;
+
+        // Calculate Squared Distance (Omit the expensive sqrtf call!)
+        float distSq = (dx * dx) + (dy * dy) + (dz * dz);
+
+        sortedBillboards.push_back({ distSq, &bb.second });
+    }
+
+    // 3. Sort the vector from Furthest to Closest (Descending Order)
+    std::sort(sortedBillboards.begin(), sortedBillboards.end(), 
+        [](const std::pair<float, const AnimationData*>& a, const std::pair<float, const AnimationData*>& b) {
+            return a.first > b.first; // '>' ensures furthest objects are drawn first
+        });
+
+    // 4. Render them in the correct sorted order
+    for (const auto& item : sortedBillboards) 
+    {
+        const AnimationData* b = item.second;
+        DrawBillboardRec(b->camera, b->frame, b->source, b->position, b->size, b->color);
     }
 }
 
@@ -569,11 +594,12 @@ void GlobalInfo::PlayerInfo()
 {
     gI.scene.player = new Player();
 
-    LoadAnim(scene.player, IDLE,     "Idle", "Warrior",    5, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, MOVING,   "Walk", "Warrior",    8, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, JUMPING,  "Jump", "Warrior",    5, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, ATTACKING,"Attack01", "Warrior",6, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, DIE,      "Death", "Warrior",   5, SPRITES_FOLDER_PATH);
+    LoadAnim(scene.player, IDLE,     "Idle",    "Warrior",  5, SPRITES_FOLDER_PATH);
+    LoadAnim(scene.player, MOVING,   "Walk",    "Warrior",  8, SPRITES_FOLDER_PATH);
+    LoadAnim(scene.player, JUMPING,  "Jump",    "Warrior",  5, SPRITES_FOLDER_PATH);
+    LoadAnim(scene.player, ATTACKING,"Attack01","Warrior",  6, SPRITES_FOLDER_PATH);
+    LoadAnim(scene.player, DIE,      "Death",   "Warrior",  5, SPRITES_FOLDER_PATH);
+    LoadAnim(scene.player, HURT,     "Hurt",    "Warrior",  4, SPRITES_FOLDER_PATH);
     
     int barWidth = BAR_WIDTH,
     barHeight = 25,
@@ -1010,6 +1036,15 @@ void Player::Update()
         return;
     }
 
+    if (IsKeyPressed(gI.ATTACK_KEY)) state = ATTACKING;
+
+    if (state == HURT)
+    {
+        hurtTimer -= gI.dT;
+        if (hurtTimer <= 0) state = IDLE;
+        return;
+    }
+
     groundRay.position = position-(Vector3){0, size/2-0.1f, 0};
     Vector2 moveInput = GetDirectionalInputV();
     Vector3 inputDir = {moveInput.x * gI.dT * speed * speedMultiplier, 0, moveInput.y * gI.dT * speed * speedMultiplier};
@@ -1071,7 +1106,6 @@ void Player::Update()
     yVelocity = Clamp(yVelocity, -15, 10);
     position.y +=  yVelocity * gI.dT;
 
-    if (IsKeyPressed(gI.ATTACK_KEY)) state = ATTACKING;
 }
 
 bool attackHitDealt = false;

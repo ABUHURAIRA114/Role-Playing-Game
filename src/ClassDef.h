@@ -322,6 +322,7 @@ class Character : public TransformMI
     Texture2D anims[7][4] = {}; // 0: Down, 1: Left, 2: Right, 3: Up
     float frameTimer = 0.0f, frameWidth[7] = {};  
     int currentFrame = 0, currDir = 0;
+    float hurtTimer;       // countdown between attacks
 
     float maxHealth, currHealth, speed, speedMultiplier;
     Vector3 target;
@@ -330,7 +331,7 @@ class Character : public TransformMI
     
     public:
     Character(string name = "RJoe", float maxHealth=100, float speed=1, Vector3 position={0,0,0}, Vector3 target={0,0,0}, int damage = 10)
-    : TransformMI(name, position, {0,0,0}, 1), maxHealth(maxHealth), currHealth(maxHealth), speed(speed), target(target),
+    : TransformMI(name, position, {0,0,0}, 1), maxHealth(maxHealth), currHealth(maxHealth), speed(speed), target(target), hurtTimer(0),
     yVelocity(0), state(0), damage(damage), currDamage(damage), speedMultiplier(1.0f) {}
     virtual ~Character() = 0;
 
@@ -397,7 +398,15 @@ class Player : public Character
 
     int CurrDamage() { return currDamage; }
 
-    void CurrHealth(float value) { currHealth = value; }
+    void CurrHealth(float value) 
+    {
+        if (currHealth>value)
+        {
+            state = HURT;
+            hurtTimer = 0.3f;
+        }
+        currHealth = value; 
+    }
     void Speed(float value) { this->speed = value; }
     void Target(Vector3 value) { target= value; }
     void _Inventory(Inventory value) { inventory = value; }
@@ -441,7 +450,6 @@ class PossessedNPC : public NPC
     const float ATTACK_COOLDOWN = 1.5f;
 
     float attackTimer;       // countdown between attacks
-    float hurtTimer;         // how long HURT state lasts
     Vector3 spawnPos;        // original idle position
 
     // per-NPC animation state helpers (mirrors Player)
@@ -452,7 +460,7 @@ class PossessedNPC : public NPC
     PossessedNPC(string name = "Possessed", Vector3 position = {0, 0, 0},
                  float maxHealth = 60, float speed = 2, int damage = 8)
         : NPC(name, maxHealth, speed, position, ENEMY, damage),
-          attackTimer(0), hurtTimer(0), spawnPos(position),
+          attackTimer(0), spawnPos(position),
           npcLastState(-1), npcAnimEnd(false) {}
 
     // Called externally when player's attack lands on this NPC
