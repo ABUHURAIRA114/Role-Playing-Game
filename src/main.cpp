@@ -16,6 +16,8 @@ void Start()
 
     gI.LoadThings();
     save.LoadScene(gI.scene);
+    Merchant merchant = Merchant("Merchant-Man", (Vector3){0,0,0}, {gI.POTION_NAMES[POTENT_HEALTH_POTION], gI.POTION_NAMES[POTENT_HEALTH_POTION]});
+    merchant.Dialogue();
 }
 
 void Update()

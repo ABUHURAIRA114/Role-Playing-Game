@@ -636,9 +636,10 @@ void GlobalInfo::PlayerInfo()
 
     try
     {
-        scene.player->AddItem(new Potion(HealthMid));
+        scene.player->AddItem(new Potion(potions[POTENT_HEALTH_POTION]));
+        scene.player->AddItem(new Potion(potions[POTENT_HEALTH_POTION]));
 
-        scene.player->AddItem(new Potion(StaminaPotent));
+        scene.player->AddItem(new Potion(potions[POTENT_STAMINA_POTION]));
     }
     catch(const failed_execution& e)
     {
@@ -660,6 +661,54 @@ void GlobalInfo::PlayerInfo()
     {
         cout <<"Unknown Exception\n";
     }
+}
+
+void GlobalInfo::LoadDialogueBox()
+{
+    int boxWidth = SCREEN_WIDTH - 110;
+    int boxHeight = 200;
+    int margin = 50;
+    int padding = 6;
+
+    float posX = margin;
+    float posY = SCREEN_HEIGHT - boxHeight - margin;
+
+    // --- COLORS (Cream/Brown theme) ---
+    Color borderColor = (Color){92, 64, 51, 255};     // dark brown
+    Color panelColor  = (Color){245, 240, 220, 255};  // cream/white
+
+    // --- BORDER (BACKGROUND) ---
+    scene.AddUIObject(new Banner("DIALOGUE_BG", "", (Vector2){posX, posY}, (Vector2){boxWidth, boxHeight}, 0, borderColor));
+    // --- INNER PANEL ---
+    scene.AddUIObject(new Banner("DIALOGUE_PANEL", "", (Vector2){posX + padding, posY + padding}, (Vector2){boxWidth - 2*padding, boxHeight - 2*padding}, 0, panelColor));
+    // --- SPEAKER NAME ---
+    scene.dialogueSpeakerTextIdx = scene.uiCount;
+    scene.AddUIObject(new Banner("DIALOGUE_NAME", "Speaker", (Vector2){posX + padding + 10, posY + padding + 5}, (Vector2){200, 40}, 20, borderColor));
+    // --- DIALOGUE TEXT ---
+    scene.dialogueTextIdx = scene.uiCount;
+    scene.AddUIObject(new Banner("DIALOGUE_TEXT", "Dialogue goes here...", (Vector2){posX + padding + 10, posY + padding + 50}, (Vector2){boxWidth - 40, boxHeight-70}, 18, DARKBROWN));
+    
+    boxWidth = 300, boxHeight = 150, margin = 50, padding = 6;
+
+    // Position relative to dialogue box
+    float dialogueTop = SCREEN_HEIGHT - 200 - margin; // same boxHeight as your dialogue
+    posX = SCREEN_WIDTH - margin - boxWidth - 10;
+    posY = dialogueTop - boxHeight - 10; // 10px gap above dialogue
+
+    // --- COLORS ---
+    borderColor = (Color){92, 64, 51, 255};     // dark brown
+    panelColor  = (Color){245, 240, 220, 255};  // cream
+
+    // --- BORDER ---
+    scene.AddUIObject(new Banner("CHOICE_BG", "", (Vector2){posX, posY}, (Vector2){boxWidth, boxHeight}, 0, borderColor));
+    // --- INNER PANEL ---
+    scene.AddUIObject(new Banner("CHOICE_PANEL", "", (Vector2){posX + padding, posY + padding}, (Vector2){boxWidth - 2*padding, boxHeight - 2*padding}, 0, panelColor));
+
+    // --- CHOICES TEXT (3 OPTIONS) ---
+    scene.choice1Idx = scene.uiCount;
+    scene.AddUIObject(new Banner("CHOICE_1", "Choice 1", (Vector2){posX + padding + 10, posY + padding + 10}, (Vector2){boxWidth - 30, 35}, 18, DARKBROWN));
+    scene.AddUIObject(new Banner("CHOICE_2", "Choice 2", (Vector2){posX + padding + 10, posY + padding + 50}, (Vector2){boxWidth - 30, 35}, 18, DARKBROWN));
+    scene.AddUIObject(new Banner("CHOICE_3", "Choice 3", (Vector2){posX + padding + 10, posY + padding + 90}, (Vector2){boxWidth - 30, 35}, 18, DARKBROWN));
 }
 
 void GlobalInfo::Assets()
@@ -686,13 +735,15 @@ void GlobalInfo::Assets()
     grid.OrderUI(VERTICAL);
     UnloadDirectoryFiles(files);
 
-    HealthWeak = Potion("Weak Health Potion", false, HEALTH_REGEN, 10);
-    HealthMid = Potion("Mid Health Potion", false, HEALTH_REGEN, 30);
-    HealthPotent = Potion("Potent Health Potion", false, HEALTH_REGEN, 60);
+    potions[WEAK_HEALTH_POTION]     = Potion("Weak Health Potion", false, HEALTH_REGEN, 10);
+    potions[MID_HEALTH_POTION]      = Potion("Mid Health Potion", false, HEALTH_REGEN, 30);
+    potions[POTENT_HEALTH_POTION]   = Potion("Potent Health Potion", false, HEALTH_REGEN, 60);
 
-    StaminaWeak = Potion("Weak Stamina Potion", false, STAMINA_REGEN, 10);
-    StaminaMid = Potion("Mid Stamina Potion", false, STAMINA_REGEN, 30);
-    StaminaPotent = Potion("Potent Stamina Potion", false, STAMINA_REGEN, 60);
+    potions[WEAK_STAMINA_POTION]    = Potion("Weak Stamina Potion", false, STAMINA_REGEN, 10);
+    potions[MID_STAMINA_POTION]     = Potion("Mid Stamina Potion", false, STAMINA_REGEN, 30);
+    potions[POTENT_STAMINA_POTION]  = Potion("Potent Stamina Potion", false, STAMINA_REGEN, 60);
+
+    potions[STRENGTH_POTION]        = Potion("Strength Potion", false, STRENGTH_BOOST, 60);
 }
 
 // Spawn positions for possessed NPCs scattered around the scene
@@ -712,7 +763,7 @@ void GlobalInfo::LoadNPCs()
         PossessedNPC* npc = new PossessedNPC(
             "Possessed_" + to_string(n),
             NPC_SPAWN_POSITIONS[n],
-            60,   // maxHealth
+            30,   // maxHealth
             2.5f, // speed
             10    // damage
         );
@@ -736,6 +787,7 @@ void GlobalInfo::LoadThings()
     Assets();
     PlayerInfo();
     LoadNPCs();
+    LoadDialogueBox();
 }
 
 void GlobalInfo::UnloadThings()
@@ -859,17 +911,8 @@ void Inventory::RemoveItem(int idx)
 
     if (itemsCount[idx]<=0) throw empty_collection("Slot Empty");
 
-    Item** newItems = new Item*[itemsCount[idx] - 1];
-
-    for (int i = 0; i < itemsCount[idx]; i++) 
-    {
-        if (i == idx) continue;
-
-        newItems[i] = items[idx][i];
-    }
-
-    delete[] items[idx];
-    items[idx] = newItems;
+    delete items[idx][itemsCount[idx]-1];
+    items[idx][itemsCount[idx]-1] = nullptr;
     itemsCount[idx]--;
 }
 
@@ -937,9 +980,7 @@ void PossessedNPC::Update()
         if (attackTimer <= 0)
         {
             attackTimer = ATTACK_COOLDOWN;
-            // Deal damage to player
-            float newHp = Clamp(player->CurrHealth() - (float)damage, 0, player->MaxHealth());
-            player->CurrHealth(newHp);
+            player->TakeDamage((float)damage);
         }
     }
     else if (dist <= AGGRO_RANGE)
@@ -1026,6 +1067,16 @@ void PossessedNPC::DrawCharacter()
 
 // Player ==================================================================================================================================================================================
 
+void Player::TakeDamage(float amount)
+{
+    if (currHealth<=0) return;
+    
+    state = HURT;
+    hurtTimer = 0.3f;
+
+    currHealth -= (amount/armour);
+}
+
 float jT=0, yPos=0;
 bool isSprinting;
 void Player::Update() 
@@ -1035,8 +1086,6 @@ void Player::Update()
         state = DIE;
         return;
     }
-
-    if (IsKeyPressed(gI.ATTACK_KEY)) state = ATTACKING;
 
     if (state == HURT)
     {
@@ -1113,6 +1162,8 @@ void Player::Attack()
 {
     if (currHealth < 0) return;
     
+    if (IsKeyPressed(gI.ATTACK_KEY) || IsMouseButtonPressed(gI.ATTACK_KEY_MOUSE)) state = ATTACKING;
+
     if (gI.scene.player->state != ATTACKING) 
     {
         attackHitDealt = false;
@@ -1130,7 +1181,7 @@ void Player::Attack()
             if (npc->State() == DIE) continue;
 
             Vector3 diff = { npc->Position().x - position.x, 0, npc->Position().z - position.z };
-            if (Magnitude(diff) <= PLAYER_ATTACK_RANGE) npc->TakeDamage((float)gI.scene.player->CurrDamage());
+            if (Magnitude(diff) <= PLAYER_ATTACK_RANGE) npc->TakeDamage((float)(gI.scene.player->CurrDamage()+strength)/1.5f);
         }
     }
 }
@@ -1258,36 +1309,23 @@ void Player::InvUI_Update()
 
 void Player::UpdateEffects()
 {
-    if (IsKeyPressed(gI.INV_1))
+    int inp = (IsKeyPressed(gI.INV_1))?0:(IsKeyPressed(gI.INV_2)?1:-1);
+
+    if (inp>=0 && inventory.itemsCount[inp]>0)
     {
-        if (inventory.itemsCount[0]>0)
+        Potion* potion = dynamic_cast<Potion*>(inventory.items[inp][0]);
+        if (potion)
         {
-            Potion* potion = dynamic_cast<Potion*>(inventory.items[0][0]);
-            if (potion)
-            {
-                potion->ApplyEffect(*this);
-                inventory.RemoveItem(inventory.FindItem(potion->Name()));
-                InvUI_Update();
-                delete potion;
-            }
+            potion->ApplyEffect(*this);
+            try
+            { inventory.RemoveItem(inp); }
+            catch(const out_of_range& e) { cout<<e.what()<<endl; }
+            catch(const empty_collection& e) { cout<<e.what()<<endl; }
+
+            InvUI_Update();
         }
     }
-
-    if (IsKeyPressed(gI.INV_2))
-    {
-        if (inventory.itemsCount[1]>0)
-        {
-            Potion* potion = dynamic_cast<Potion*>(inventory.items[1][0]);
-            if (potion)
-            {
-                potion->ApplyEffect(*this);
-                inventory.RemoveItem(inventory.FindItem(potion->Name()));
-                InvUI_Update();
-                delete potion;
-            }
-        }
-    }
-
+    
     map<int, float> temp = effects;
     vector<int> damageBoosts;
     

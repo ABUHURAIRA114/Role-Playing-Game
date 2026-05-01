@@ -1,6 +1,19 @@
 #include "HeaderAndProto.h"
 #define gI GlobalInfo::instance
 
+struct DialogueNodes
+{
+    int choiceID;
+    string dialogue;
+    map<int, pair<string, int>> choices;
+};
+
+class I_Dialogueable
+{
+    public:
+    virtual void Dialogue() = 0;
+};
+
 struct AnimationData
 {
     Camera3D camera;
@@ -46,6 +59,8 @@ struct Scene
 
     RectTransform **ui;
     int uiCount;
+    int dialogueSpeakerTextIdx, dialogueTextIdx,
+    choice1Idx;
 
     PossessedNPC **npcs;
     int npcCount;
@@ -76,9 +91,10 @@ class Item
     protected:
     string name;
     bool essential;
+    int price;
 
     public:
-    Item(string name="Item", bool essential=false) : name(name), essential(essential) {}
+    Item(string name="Item", bool essential=false, int price=0) : name(name), essential(essential), price(price) {}
     virtual ~Item() {}
 
     string Name() { return name; }
@@ -112,13 +128,14 @@ struct GlobalInfo
     const int JUMP_KEY = KEY_SPACE;
     const int SPRINT_KEY = KEY_LEFT_SHIFT;
     const int ATTACK_KEY = KEY_LEFT_CONTROL;
+    const int ATTACK_KEY_MOUSE = MOUSE_BUTTON_LEFT;
     const int INV_1 = KEY_ONE;
     const int INV_2 = KEY_TWO;
-
+    
     const string MODELS_FOLDER_PATH = "./assets/models"; 
     const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
     const string SPRITES_FOLDER_PATH = "./assets/sprites"; 
-
+    
     const string SAVE_FOLDER_PATH = "./saves"; 
     const string DEFAULT_MODEL_NAME = "DEF_MOD";
     static GlobalInfo instance;
@@ -127,14 +144,18 @@ struct GlobalInfo
     map<string, Texture2D> textures;
     Scene scene;
     float dT;
+    
+    const string POTION_NAMES[7] = {
+        "Weak Health Potion", "Mid Health Potion", "Potent Health Potion",
+        "Weak Stamina Potion", "Mid Stamina Potion", "Potent Stamina Potion",
+        "Strength Potion"
+    };
 
-    Potion HealthWeak, HealthMid, HealthPotent;
-    Potion StaminaWeak, StaminaMid, StaminaPotent;
-    Potion Strength;
+    Potion potions[7];
 
     void LoadAnim(Character* npc, int stateIdx, const string& stateName,const string& name, int frameCount, const string& spritesPath);
 
-    void Shade(), LoadThings(), PlayerInfo(), Assets(), LoadNPCs(), UnloadThings();
+    void Shade(), LoadThings(), PlayerInfo(), Assets(), LoadDialogueBox(), LoadNPCs(), UnloadThings();
     private:
     GlobalInfo() {} 
 };
@@ -340,11 +361,12 @@ class Character : public TransformMI
     virtual float Speed() { return speed; }
     virtual Vector3 Target() { return target; }
     virtual bool IsGrounded() { return isGrounded; }
-
+    
     virtual void CurrHealth(float value) { currHealth = value; }
     virtual void Speed(float value) { this->speed = value; }
     virtual void Target(Vector3 value) { target= value; }
-
+    
+    virtual void TakeDamage(float amount) {}
     virtual void Update();
     virtual void DrawCharacter() {}
     virtual void Attack() {}
@@ -364,9 +386,11 @@ class Player : public Character
     Inventory inventory;
     int healthBarIdx, staminaBarIdx;
 
+    int charisma, strength, armour;
+
     public:
-    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 1, float healthRegenRate = 0.5f, float speed=4, int damage = 10, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
-    : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), currStamina(maxStamina), staminaRegenRate(staminaRegenRate), healthRegenRate(healthRegenRate)
+    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 1, float healthRegenRate = 0.5f, float speed=4, int damage = 10, int strength = 5, int charisma = 5, int armour = 5, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
+    : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), currStamina(maxStamina), staminaRegenRate(staminaRegenRate), healthRegenRate(healthRegenRate), charisma(charisma), strength(strength), armour(armour)
     {
         camera.fovy = 95.0f;
         camera.position = {position.x, position.y+camDist, position.z+camDist};
@@ -400,16 +424,13 @@ class Player : public Character
 
     void CurrHealth(float value) 
     {
-        if (currHealth>value)
-        {
-            state = HURT;
-            hurtTimer = 0.3f;
-        }
         currHealth = value; 
     }
     void Speed(float value) { this->speed = value; }
     void Target(Vector3 value) { target= value; }
     void _Inventory(Inventory value) { inventory = value; }
+
+    void TakeDamage(float amount);
 
     void CalculateIsGrounded();
     void Update(), UpdateEffects();
@@ -443,6 +464,18 @@ class NPC : public Character
     virtual int State() { return state; }
 };
 
+class Civilians : public NPC, public I_Dialogueable
+{
+    public:
+    Civilians(string name = "NPC", float maxHealth = 60, float speed = 2, Vector3 position = {0, 0, 0},
+    int relation = FRIENDLY, int damage = 8)
+    : NPC(name, maxHealth, speed, position, relation, damage) {}
+    
+    void Dialogue()
+    {
+    }
+};
+
 class PossessedNPC : public NPC
 {
     const float AGGRO_RANGE = 6;   // detect player
@@ -458,7 +491,7 @@ class PossessedNPC : public NPC
 
     public:
     PossessedNPC(string name = "Possessed", Vector3 position = {0, 0, 0},
-                 float maxHealth = 60, float speed = 2, int damage = 8)
+                 float maxHealth = 30, float speed = 2, int damage = 8)
         : NPC(name, maxHealth, speed, position, ENEMY, damage),
           attackTimer(0), spawnPos(position),
           npcLastState(-1), npcAnimEnd(false) {}
@@ -473,12 +506,51 @@ class PossessedNPC : public NPC
     friend void GlobalInfo::UnloadThings();
 };
 
-class Merchant : public NPC
+class Merchant : public NPC, public I_Dialogueable
 {
+    DialogueNodes dialogues[3];
+
     public:
-    Merchant(string name = "Merchant", Vector3 position = {0,0,0})
-        : NPC(name, 100, 0, position, FRIENDLY, 0) {}
-    virtual ~Merchant() {}
+Merchant(string name = "Merchant-Man", Vector3 position = {0,0,0}, vector<string> items = {})
+    : NPC(name, 100, 0, position, FRIENDLY, 0)
+    {
+        dialogues[0] = 
+        {   
+            1, "Hello ma'nigga, what do you want?",
+            {
+                {0, {"Buy", 2}},
+                {1, {"Sell", 3}},
+                {2, {"Back", -1}}
+            }
+        };
+
+        dialogues[1] = 
+        {   
+            1, "Hello ma'nigga, what do you want?",
+            {
+                {0, {items[0], 2}},
+                {1, {items[1], 2}},
+                {2, {"Back", -1}}
+            }
+        };
+    }
+
+    void Dialogue()
+    {
+        Banner* banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
+
+        string text = "Hello ma'nigga, what do you want?";
+        if (banner) banner->_Text()._Text(text);
+
+        banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueSpeakerTextIdx]);
+        if (banner) banner->_Text()._Text(name);
+
+        for (const auto& choice : dialogues[1].choices)
+        {
+            banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.choice1Idx+choice.first]);
+            if (banner) banner->_Text()._Text(choice.second.first);
+        }
+    }
 };
 
 
