@@ -79,6 +79,9 @@ void Update()
         }
     }
     gI.scene.ObjectSpawn();
+    
+    if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_D))
+        gI.scene.DuplicateSelected();
 
     if (mode == GAME)
     {

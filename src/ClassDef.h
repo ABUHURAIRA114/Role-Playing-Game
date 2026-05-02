@@ -96,11 +96,12 @@ struct Scene
     void RemoveUIObject(int);   
     int FindObjectIndex(string);
     int FindUIObjectIndex(string);
-    
+
     int FindNPCIndex(int);
     int FindEnemyIndex(int);
     bool IsCharacter(int);
 
+    void DuplicateSelected();
     void ObjectSpawn();
 
     void SelectionMove();

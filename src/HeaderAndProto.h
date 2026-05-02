@@ -6,7 +6,7 @@
 #include <algorithm>
 #include "CustomExceptions.h"
 #include <vector>
-
+#include <cfloat>
 using namespace std;
 
 enum Direction { DOWN=0, LEFT=1, RIGHT=2, UP=3 };

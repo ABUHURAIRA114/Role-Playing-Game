@@ -471,19 +471,86 @@ void Scene::SelectObject(Ray ray)
     } 
 }
 
+void Scene::DuplicateSelected()
+{
+    if (!selected) return;
+
+    Box* dupe = new Box(
+        selected->Name(),
+        selected->Position(),
+        selected->Rotation(),
+        selected->Size(),
+        selected->AssetName()
+    );
+
+    AddObject(dupe);
+    selected = objects[objectCount - 1]; // select the newly added duplicate
+}
+
 void Scene::ObjectSpawn()
 {
-    for (int i = 0; i<uiCount; i++)
+    for (int i = 0; i < uiCount; i++)
     {
-        if (ui[i]->Name().find("Spawner") != std::string::npos)
-        {
-            Button* button = dynamic_cast<Button*>(ui[i]);
+        if (ui[i]->Name().find("Spawner") == std::string::npos) continue;
 
-            if (!button) continue;
-            if (!button->IsClicked()) continue;
-            cout<<"Spawning "<<button->_Text()._Text()<<endl;
-            AddObject(new Box("Gameobject", {0,0,0}, {0,0,0}, 1, button->_Text()._Text()));
+        Button* button = dynamic_cast<Button*>(ui[i]);
+        if (!button || !button->IsClicked()) continue;
+
+        cout << "Spawning " << button->_Text()._Text() << endl;
+
+        // Cast ray from camera center
+        Ray ray = GetScreenToWorldRay(
+            {(float)gI.SCREEN_WIDTH / 2, (float)gI.SCREEN_HEIGHT / 2},
+            sceneCamera.Camera()
+        );
+
+        Vector3 spawnPos = {0, 0, 0};
+        float closestDist = FLT_MAX;
+        bool hitSomething = false;
+
+        // Check against all scene objects
+        for (int j = 0; j < objectCount; j++)
+        {
+            RayCollision hit = GetRayCollisionBox(ray, objects[j]->Boundary());
+            if (hit.hit && hit.distance < closestDist)
+            {
+                closestDist = hit.distance;
+                // Place on top of the hit surface
+                spawnPos = {
+                    hit.point.x,
+                    hit.point.y + 0.5f, // offset up so it sits on surface
+                    hit.point.z
+                };
+                hitSomething = true;
+            }
         }
+
+        // No object hit — place on ground plane (y=0)
+        if (!hitSomething)
+        {
+            // Find where ray intersects y=0 plane
+            if (fabs(ray.direction.y) > 0.0001f)
+            {
+                float t = -ray.position.y / ray.direction.y;
+                if (t > 0)
+                {
+                    spawnPos = {
+                        ray.position.x + ray.direction.x * t,
+                        0,
+                        ray.position.z + ray.direction.z * t
+                    };
+                }
+                else
+                    spawnPos = {ray.position.x, 0, ray.position.z}; // camera below ground
+            }
+            else
+                spawnPos = {ray.position.x + ray.direction.x * 10, 0, ray.position.z + ray.direction.z * 10};
+        }
+
+        // Never spawn below y=0
+        spawnPos.y = fmax(spawnPos.y, 0);
+
+        AddObject(new Box("Gameobject", spawnPos, {0,0,0}, 1, button->_Text()._Text()));
     }
 }
 
@@ -1522,6 +1589,8 @@ void Player::Update()
     if (currHealth == 0)
     {
         state = DIE;
+        position = {0,0,0};
+        currHealth = maxHealth;
         return;
     }
 
@@ -1541,19 +1610,19 @@ void Player::Update()
     target = (position + inputDir);
     directionRay.direction = Normalize(target-position);
     
-    for (int i = 0; i<gI.scene.objectCount; i++) 
-    {
-        rayInfo = GetRayCollisionBox(directionRay, gI.scene.objects[i]->Boundary());
+    // for (int i = 0; i<gI.scene.objectCount; i++) 
+    // {
+    //     rayInfo = GetRayCollisionBox(directionRay, gI.scene.objects[i]->Boundary());
         
-        if (rayInfo.hit)
-        {
-            if (rayInfo.distance<=0.5f)
-            {
-                target = position;
-            }
+    //     if (rayInfo.hit)
+    //     {
+    //         if (rayInfo.distance<=0.5f)
+    //         {
+    //             target = position;
+    //         }
             
-        }
-    }
+    //     }
+    // }
     
     isSprinting = (IsKeyDown(gI.SPRINT_KEY) && currStamina>0 ? true : false);
 
