@@ -9,15 +9,17 @@ void Start()
 {
     gI.scene.sceneCamera.speed = 1.0f;
     gI.scene.sceneCamera.sensitivity = 0.5f;
-    gI.scene.AddUIObject(new Button("Button 1", "Click To Add Box", (Vector2){gI.SCREEN_WIDTH - 200, 30}, (Vector2){200, 60}, 20, MAROON));
+    gI.scene.AddUIObject(new Button("Button 1", "Enemy Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 30}, (Vector2){200, 40}, 20, MAROON));
+    gI.scene.AddUIObject(new Button("Button 2", "Civil Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 80}, (Vector2){200, 40}, 20, MAROON));
+    gI.scene.AddUIObject(new Button("Button 3", "Merchant Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 130}, (Vector2){200, 40}, 20, MAROON));
+
     gI.scene.AddUIObject(new Button("Editor", "Editor", (Vector2){gI.SCREEN_WIDTH/2 + 10, 30}, (Vector2){200, 60}, 20, BLUE));
     gI.scene.AddUIObject(new Button("Game", "Game", (Vector2){gI.SCREEN_WIDTH/2 - 210, 30}, (Vector2){200, 60}, 20, MAROON));
     gI.scene.AddUIObject(new Button("Kill", "Kill", (Vector2){gI.SCREEN_WIDTH/2 - 210, 100}, (Vector2){200, 60}, 20, RED));
 
     gI.LoadThings();
     save.LoadScene(gI.scene);
-    Merchant merchant = Merchant("Merchant-Man", (Vector3){0,0,0}, {gI.POTION_NAMES[POTENT_HEALTH_POTION], gI.POTION_NAMES[POTENT_HEALTH_POTION]});
-    merchant.Dialogue();
+    gI.LoadNPCs();
 }
 
 void Update()
@@ -26,7 +28,7 @@ void Update()
     gI.Shade(); 
     if (IsMouseButtonPressed(gI.FREE_CAMERA_KEY)) DisableCursor(); 
     else if (IsMouseButtonReleased(gI.FREE_CAMERA_KEY)) EnableCursor(); 
-    
+
     text = "Camera Off";
     if (IsMouseButtonDown(gI.FREE_CAMERA_KEY))
     {   
@@ -45,15 +47,21 @@ void Update()
         gI.scene.SelectObject(GetScreenToWorldRay(GetMousePosition(), gI.scene.sceneCamera.Camera()));
     
     Button* button = dynamic_cast<Button*>(gI.scene.ui[0]);
-    if (button) if (button->IsClicked()) gI.scene.AddObject(new Box());
+    if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.ENEMY_SPAWNER_NAME, gI.ENEMY_SPAWNER_NAME));
     
     button = dynamic_cast<Button*>(gI.scene.ui[1]);
-    if (button) if (button->IsClicked()) mode = EDITOR;
+    if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.CIVIL_SPAWNER_NAME, gI.CIVIL_SPAWNER_NAME));
 
     button = dynamic_cast<Button*>(gI.scene.ui[2]);
-    if (button) if (button->IsClicked()) mode = GAME;
+    if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.MERCHANT_SPAWNER_NAME, gI.MERCHANT_SPAWNER_NAME));
 
     button = dynamic_cast<Button*>(gI.scene.ui[3]);
+    if (button) if (button->IsClicked()) mode = EDITOR;
+
+    button = dynamic_cast<Button*>(gI.scene.ui[4]);
+    if (button) if (button->IsClicked()) mode = GAME;
+
+    button = dynamic_cast<Button*>(gI.scene.ui[5]);
     if (button) if (button->IsClicked()) 
     {
         if (gI.scene.player->CurrHealth()==100)
@@ -76,8 +84,14 @@ void Update()
         gI.scene.player->Update();
         gI.scene.player->UpdateEffects();
         gI.scene.player->StateUpdate();
-        gI.scene.player->Attack();
+
+        // Merchant interaction — only allow attack when dialogue is closed
+        if (!gI.scene.dialogueVisible)
+            gI.scene.player->Attack();
+
         gI.scene.UpdateNPCs();
+        gI.scene.player->Dialogue();
+
     }
 }
 
@@ -120,6 +134,14 @@ int main () {
             // DrawText(to_string(gI.scene.player->CurrStamina()).c_str(), gI.SCREEN_WIDTH/2, gI.SCREEN_HEIGHT/2, 40, DARKGRAY);
             
             gI.scene.DrawSceneUI();
+
+            // Merchant interact prompt (drawn in 2D after 3D mode)
+            // if (mode == GAME && gI.scene.npcs[0])
+            //     gI.scene.npcs[0]->DrawInteractPrompt();
+            
+            // Dialogue close hint
+            if (mode == GAME && gI.scene.dialogueVisible)
+                DrawText("[E] Close", gI.SCREEN_WIDTH - 160, gI.SCREEN_HEIGHT - 280, 18, DARKBROWN);
 
         EndDrawing();
 

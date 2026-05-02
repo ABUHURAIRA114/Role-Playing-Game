@@ -165,12 +165,24 @@ void CameraMI::SpeedScroll()
 
 // Scene ==================================================================================================================================================================================
 
+void Scene::AddSpawnObject(Box* newObject, Box**& spawnArray, int& spawnCount, int i=0) 
+{
+    Box** newSpawners = new Box*[spawnCount + 1];
+    for (int i = 0; i < spawnCount; i++) {
+        newSpawners[i] = spawnArray[i];
+    }
+    newSpawners[spawnCount] = newObject;
+    delete[] spawnArray;
+    spawnArray = newSpawners;
+    spawnCount++;
+}
+
 void Scene::AddObject(Box* newObject, int i=0) 
 {
     string name = ReplaceWhiteSpaces(newObject->Name());
 
     if (i>0) name = newObject->Name()+to_string(i);
-    if (FindObjectIndex(name) != -1) 
+    if (FindObjectIndex(name) != -1 && newObject->Name()!=gI.ENEMY_SPAWNER_NAME  && newObject->Name()!=gI.CIVIL_SPAWNER_NAME  && newObject->Name()!=gI.MERCHANT_SPAWNER_NAME) 
     {
         AddObject(newObject, i+1); // try with new name
         return;
@@ -303,29 +315,31 @@ void Scene::DrawScene()
         DrawModelWires(box->_Model(), box->Position(), box->Size(), BLACK);
     }
 
+    for (int i = 0; i < enemyCount; i++) enemies[i]->DrawCharacter();
     for (int i = 0; i < npcCount; i++) npcs[i]->DrawCharacter();
+
     player->DrawCharacter();
     
-    std::vector<std::pair<float, const AnimationData*>> sortedBillboards;
+    std::vector<std::pair<double, const AnimationData*>> sortedBillboards;
     sortedBillboards.reserve(billboards.size()); // Pre-allocate memory for speed
 
     // 2. Calculate distances and populate the list
     for (const auto& bb : billboards) 
     {
         // Calculate vector from the camera to the billboard
-        float dx = bb.second.camera.position.x - bb.second.position.x;
-        float dy = bb.second.camera.position.y - bb.second.position.y;
-        float dz = bb.second.camera.position.z - bb.second.position.z;
+        double dx = bb.second.camera.position.x - bb.second.position.x;
+        double dy = bb.second.camera.position.y - bb.second.position.y;
+        double dz = bb.second.camera.position.z - bb.second.position.z;
 
         // Calculate Squared Distance (Omit the expensive sqrtf call!)
-        float distSq = (dx * dx) + (dy * dy) + (dz * dz);
+        double distSq = (dx * dx) + (dy * dy) + (dz * dz);
 
         sortedBillboards.push_back({ distSq, &bb.second });
     }
 
     // 3. Sort the vector from Furthest to Closest (Descending Order)
     std::sort(sortedBillboards.begin(), sortedBillboards.end(), 
-        [](const std::pair<float, const AnimationData*>& a, const std::pair<float, const AnimationData*>& b) {
+        [](const std::pair<double, const AnimationData*>& a, const std::pair<double, const AnimationData*>& b) {
             return a.first > b.first; // '>' ensures furthest objects are drawn first
         });
 
@@ -342,6 +356,13 @@ void Scene::DrawSceneUI()
     for (int i = 0; i< uiCount; i++)
     {
         RectTransform* uiElement = ui[i];
+
+        // Skip dialogue/choice UI when dialogue is not active
+        string uiName = uiElement->Name();
+        bool isDialogueElement = (uiName.find("DIALOGUE") != string::npos ||
+                                  uiName.find("CHOICE")   != string::npos);
+        if (isDialogueElement && !dialogueVisible) continue;
+
         Button* button = dynamic_cast<Button*>(uiElement);
         Text* text = dynamic_cast<Text*>(uiElement);
         Banner* banner = dynamic_cast<Banner*>(uiElement);
@@ -365,19 +386,29 @@ void Scene::DrawSceneUI()
 
 void Scene::AddNPC(PossessedNPC* npc)
 {
-    PossessedNPC** newNPCs = new PossessedNPC*[npcCount + 1];
+    PossessedNPC** newNPCs = new PossessedNPC*[enemyCount + 1];
+    for (int i = 0; i < enemyCount; i++) newNPCs[i] = enemies[i];
+    newNPCs[enemyCount] = npc;
+    delete[] enemies;
+    enemies = newNPCs;
+    enemyCount++;
+}
+
+void Scene::AddNPC(NPC* npc)
+{
+    NPC** newNPCs = new NPC*[npcCount + 1];
     for (int i = 0; i < npcCount; i++) newNPCs[i] = npcs[i];
     newNPCs[npcCount] = npc;
     delete[] npcs;
     npcs = newNPCs;
     npcCount++;
 }
-
+ 
 void Scene::UpdateNPCs()
 {
-    for (int i = 0; i < npcCount; i++)
+    for (int i = 0; i < enemyCount; i++)
     {
-        npcs[i]->Update();
+        enemies[i]->Update();
     }
 }
 
@@ -415,17 +446,23 @@ void Scene::ObjectSpawn()
 
 Scene::~Scene()
 {
-    for (int i = 0; i<objectCount; i++)
-        delete objects[i];
+    for (int i = 0; i<objectCount; i++) delete objects[i];
     delete[] objects;
 
-    for (int i = 0; i<uiCount; i++)
-        delete ui[i];
+    for (int i = 0; i<uiCount; i++) delete ui[i];
     delete[] ui;
 
-    for (int i = 0; i < npcCount; i++)
-        delete npcs[i];
-    delete[] npcs;
+    for (int i = 0; i < enemyCount; i++) delete enemies[i];
+    delete[] enemies;
+
+    for (int i = 0; i < enemySpawnCount; i++) delete enemySpawnPositions[i];
+    delete[] enemySpawnPositions;
+
+    for (int i = 0; i < civilSpawnCount; i++) delete civilSpawnPositions[i];
+    delete[] civilSpawnPositions;
+
+    for (int i = 0; i < merchantSpawnCount; i++) delete merchantSpawnPositions[i];
+    delete[] merchantSpawnPositions;
 
     delete player;
 }
@@ -556,12 +593,11 @@ void SaveSystem::LoadScene(Scene& scene)
             
             file>>assetName>>position.x>>position.y>>position.z>>rotation.x>>rotation.y>>rotation.z>>scale;
 
-            cout<<name<<" "<<assetName<<" "
-            <<position.x<<" "<<position.y<<" "<<position.z<<" "
-            <<rotation.x<<" "<<rotation.y<<" "<<rotation.z<<" "<<scale<<endl;
-
+            if (name == gI.ENEMY_SPAWNER_NAME) scene.AddSpawnObject(new Box(name, position, rotation, scale, assetName), gI.scene.enemySpawnPositions, gI.scene.enemySpawnCount);
+            else if (name == gI.CIVIL_SPAWNER_NAME) scene.AddSpawnObject(new Box(name, position, rotation, scale, assetName), gI.scene.civilSpawnPositions, gI.scene.civilSpawnCount);
+            else if (name == gI.MERCHANT_SPAWNER_NAME) scene.AddSpawnObject(new Box(name, position, rotation, scale, assetName), gI.scene.merchantSpawnPositions, gI.scene.merchantSpawnCount);
+            
             scene.AddObject(new Box(name, position, rotation, scale, assetName));
-
             string line;
             getline(file, line);
         }
@@ -575,14 +611,13 @@ void GlobalInfo::Shade()
     
 }
 
-void GlobalInfo::LoadAnim(Character* c, int stateIdx, const string& stateName, const string& name, int frameCount, const string& spritesPath)
+void GlobalInfo::LoadAnim(Character* c, int stateIdx, const string& stateName, const string& name, int frameCount)
 {
     const char* dirs[4] = {"Down", "Left", "Right", "Up"};
     for (int d = 0; d < 4; d++)
     {
-        string path = spritesPath + "/" + name + dirs[d] + stateName + ".png";
-        c->anims[stateIdx][d] = LoadTexture(path.c_str());
-        SetTextureFilter(c->anims[stateIdx][d], TEXTURE_FILTER_POINT);
+        string path = name + dirs[d] + stateName;
+        c->anims[stateIdx][d] = sprites[path];
     }
 
     // frameWidth derived from texture width / frameCount
@@ -594,12 +629,12 @@ void GlobalInfo::PlayerInfo()
 {
     gI.scene.player = new Player();
 
-    LoadAnim(scene.player, IDLE,     "Idle",    "Warrior",  5, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, MOVING,   "Walk",    "Warrior",  8, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, JUMPING,  "Jump",    "Warrior",  5, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, ATTACKING,"Attack01","Warrior",  6, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, DIE,      "Death",   "Warrior",  5, SPRITES_FOLDER_PATH);
-    LoadAnim(scene.player, HURT,     "Hurt",    "Warrior",  4, SPRITES_FOLDER_PATH);
+    LoadAnim(scene.player, IDLE,     "Idle",    "Warrior",  5);
+    LoadAnim(scene.player, MOVING,   "Walk",    "Warrior",  8);
+    LoadAnim(scene.player, JUMPING,  "Jump",    "Warrior",  5);
+    LoadAnim(scene.player, ATTACKING,"Attack01","Warrior",  6);
+    LoadAnim(scene.player, DIE,      "Death",   "Warrior",  5);
+    LoadAnim(scene.player, HURT,     "Hurt",    "Warrior",  4);
     
     int barWidth = BAR_WIDTH,
     barHeight = 25,
@@ -632,6 +667,8 @@ void GlobalInfo::PlayerInfo()
     scene.AddUIObject(new Text("PL_INV_T", to_string(scene.player->i1), (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
     scene.player->i2 = scene.uiCount;
     scene.AddUIObject(new Text("PL_INV_T_1", to_string(scene.player->i2), (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
+    scene.player->coinsIdx = scene.uiCount;
+    scene.AddUIObject(new Text("PL_COINS", "0 Coins", (Vector2){(float)buttonSize/10.0f + margin, scene.ui[scene.uiCount-3]->Rect().y+buttonSize+10}, {60, 50}, YELLOW));
 
 
     try
@@ -683,12 +720,12 @@ void GlobalInfo::LoadDialogueBox()
     scene.AddUIObject(new Banner("DIALOGUE_PANEL", "", (Vector2){posX + padding, posY + padding}, (Vector2){boxWidth - 2*padding, boxHeight - 2*padding}, 0, panelColor));
     // --- SPEAKER NAME ---
     scene.dialogueSpeakerTextIdx = scene.uiCount;
-    scene.AddUIObject(new Banner("DIALOGUE_NAME", "Speaker", (Vector2){posX + padding + 10, posY + padding + 5}, (Vector2){200, 40}, 20, borderColor));
+    scene.AddUIObject(new Banner("DIALOGUE_NAME", "Speaker", (Vector2){posX + padding + 10, posY + padding + 5}, (Vector2){200, 40}, 23, borderColor));
     // --- DIALOGUE TEXT ---
     scene.dialogueTextIdx = scene.uiCount;
-    scene.AddUIObject(new Banner("DIALOGUE_TEXT", "Dialogue goes here...", (Vector2){posX + padding + 10, posY + padding + 50}, (Vector2){boxWidth - 40, boxHeight-70}, 18, DARKBROWN));
+    scene.AddUIObject(new Banner("DIALOGUE_TEXT", "Dialogue goes here...", (Vector2){posX + padding + 10, posY + padding + 50}, (Vector2){boxWidth - 40, boxHeight-70}, 25, DARKBROWN));
     
-    boxWidth = 300, boxHeight = 150, margin = 50, padding = 6;
+    boxWidth = 400, boxHeight = 150, margin = 50, padding = 6;
 
     // Position relative to dialogue box
     float dialogueTop = SCREEN_HEIGHT - 200 - margin; // same boxHeight as your dialogue
@@ -706,18 +743,27 @@ void GlobalInfo::LoadDialogueBox()
 
     // --- CHOICES TEXT (3 OPTIONS) ---
     scene.choice1Idx = scene.uiCount;
-    scene.AddUIObject(new Banner("CHOICE_1", "Choice 1", (Vector2){posX + padding + 10, posY + padding + 10}, (Vector2){boxWidth - 30, 35}, 18, DARKBROWN));
-    scene.AddUIObject(new Banner("CHOICE_2", "Choice 2", (Vector2){posX + padding + 10, posY + padding + 50}, (Vector2){boxWidth - 30, 35}, 18, DARKBROWN));
-    scene.AddUIObject(new Banner("CHOICE_3", "Choice 3", (Vector2){posX + padding + 10, posY + padding + 90}, (Vector2){boxWidth - 30, 35}, 18, DARKBROWN));
+    scene.AddUIObject(new Banner("CHOICE_1", "Choice 1", (Vector2){posX + padding + 10, posY + padding + 10}, (Vector2){boxWidth - 30, 35}, 20, DARKBROWN));
+    scene.AddUIObject(new Banner("CHOICE_2", "Choice 2", (Vector2){posX + padding + 10, posY + padding + 50}, (Vector2){boxWidth - 30, 35}, 20, DARKBROWN));
+    scene.AddUIObject(new Banner("CHOICE_3", "Choice 3", (Vector2){posX + padding + 10, posY + padding + 90}, (Vector2){boxWidth - 30, 35}, 20, DARKBROWN));
 }
 
 void GlobalInfo::Assets()
 {
-    UIGrid grid({gI.SCREEN_WIDTH-300, 100}, 45);
+    UIGrid grid({gI.SCREEN_WIDTH-300, 180}, 32);
     
     models[DEFAULT_MODEL_NAME] = LoadModelFromMesh(GenMeshCube(1, 1, 1));
     textures[DEFAULT_MODEL_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, DARKPURPLE, WHITE));
-    
+
+    models[ENEMY_SPAWNER_NAME] = LoadModelFromMesh(GenMeshCube(1, .1, 1));
+    textures[ENEMY_SPAWNER_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, RED, WHITE));   
+
+    models[MERCHANT_SPAWNER_NAME] = LoadModelFromMesh(GenMeshCube(1, .1, 1));
+    textures[MERCHANT_SPAWNER_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, BROWN, WHITE));
+
+    models[CIVIL_SPAWNER_NAME] = LoadModelFromMesh(GenMeshCube(1, .1, 1));
+    textures[CIVIL_SPAWNER_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, GREEN, WHITE));
+
     FilePathList files = LoadDirectoryFiles(MODELS_FOLDER_PATH.c_str());
     for (int i = 0; i<(int)files.count; i++)
     {
@@ -727,58 +773,74 @@ void GlobalInfo::Assets()
             models[name] = LoadModel(files.paths[i]);
             if (FileExists((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str()))
                 textures[name] = LoadTexture((TEXTURES_FOLDER_PATH+"\\"+name+".png").c_str());
-            scene.AddUIObject(new Button("Spawner"+to_string(i), name, {0,0}, {300, 40}, 20, DARKGRAY));
+            scene.AddUIObject(new Button("Spawner"+to_string(i), name, {0,0}, {300, 30}, 17, DARKGRAY));
             grid.AddElement(scene.ui[scene.uiCount-1]);
         
         }
     }
     grid.OrderUI(VERTICAL);
     UnloadDirectoryFiles(files);
+    
+    files = LoadDirectoryFiles(SPRITES_FOLDER_PATH.c_str());
 
-    potions[WEAK_HEALTH_POTION]     = Potion("Weak Health Potion", false, HEALTH_REGEN, 10);
-    potions[MID_HEALTH_POTION]      = Potion("Mid Health Potion", false, HEALTH_REGEN, 30);
-    potions[POTENT_HEALTH_POTION]   = Potion("Potent Health Potion", false, HEALTH_REGEN, 60);
+    for (int i = 0; i<(int)files.count; i++)
+    {
+        if (IsFileExtension(files.paths[i], ".png"))
+        {
+            string name = GetFileNameWithoutExt(files.paths[i]);
+            sprites[name] = LoadTexture(files.paths[i]);
+            SetTextureFilter(sprites[name], TEXTURE_FILTER_POINT);
+        }
+    }
 
-    potions[WEAK_STAMINA_POTION]    = Potion("Weak Stamina Potion", false, STAMINA_REGEN, 10);
-    potions[MID_STAMINA_POTION]     = Potion("Mid Stamina Potion", false, STAMINA_REGEN, 30);
-    potions[POTENT_STAMINA_POTION]  = Potion("Potent Stamina Potion", false, STAMINA_REGEN, 60);
+    UnloadDirectoryFiles(files);
 
-    potions[STRENGTH_POTION]        = Potion("Strength Potion", false, STRENGTH_BOOST, 60);
+    potions[WEAK_HEALTH_POTION]     = Potion("Weak Health Potion", HEALTH_REGEN, 10, 2);
+    potions[MID_HEALTH_POTION]      = Potion("Mid Health Potion", HEALTH_REGEN, 30, 6);
+    potions[POTENT_HEALTH_POTION]   = Potion("Potent Health Potion", HEALTH_REGEN, 60, 14);
+
+    potions[WEAK_STAMINA_POTION]    = Potion("Weak Stamina Potion", STAMINA_REGEN, 10, 1);
+    potions[MID_STAMINA_POTION]     = Potion("Mid Stamina Potion", STAMINA_REGEN, 30, 3);
+    potions[POTENT_STAMINA_POTION]  = Potion("Potent Stamina Potion", STAMINA_REGEN, 60, 6);
+
+    potions[STRENGTH_POTION]        = Potion("Strength Potion", STRENGTH_BOOST, 60, 20);
 }
-
-// Spawn positions for possessed NPCs scattered around the scene
-static const Vector3 NPC_SPAWN_POSITIONS[] = {
-    {  5, 0.5f,  5 },
-    { -5, 0.5f,  8 },
-    {  8, 0.5f, -4 },
-    { -8, 0.5f, -6 },
-    {  3, 0.5f, -9 },
-};
-static const int NPC_COUNT = 5;
 
 void GlobalInfo::LoadNPCs()
 {
-    for (int n = 0; n < NPC_COUNT; n++)
+    cout<<"Enemy Spawn Count "<<scene.enemySpawnCount<<endl;
+    for (int n = 0; n < scene.enemySpawnCount; n++)
     {
         PossessedNPC* npc = new PossessedNPC(
             "Possessed_" + to_string(n),
-            NPC_SPAWN_POSITIONS[n],
+            scene.enemySpawnPositions[n]->Position() + (Vector3){0, 0.75f, 0},
             30,   // maxHealth
             2.5f, // speed
             10    // damage
         );
 
-        // Load animations — frame counts match Player's Warrior sprite sheets
-        // IDLE      (5 frames), MOVING/Walk (8 frames), JUMPING (5 frames),
-        // ATTACKING (6 frames), DIE/Death   (5 frames), HURT     (3 frames)
-        LoadAnim(npc, IDLE,     "Idle", "Possesed",    5, SPRITES_FOLDER_PATH);
-        LoadAnim(npc, MOVING,   "Walk", "Possesed",    6, SPRITES_FOLDER_PATH);
-        LoadAnim(npc, JUMPING,  "Jump", "Possesed",    5, SPRITES_FOLDER_PATH);
-        LoadAnim(npc, ATTACKING,"Attack01", "Possesed",11, SPRITES_FOLDER_PATH);
-        LoadAnim(npc, DIE,      "Death", "Possesed",   10, SPRITES_FOLDER_PATH);
-        LoadAnim(npc, HURT,     "Hurt", "Possesed",    4, SPRITES_FOLDER_PATH);
+        LoadAnim(npc, IDLE,     "Idle", "Possesed",    5);
+        LoadAnim(npc, MOVING,   "Walk", "Possesed",    6);
+        LoadAnim(npc, JUMPING,  "Jump", "Possesed",    5);
+        LoadAnim(npc, ATTACKING,"Attack01", "Possesed",11);
+        LoadAnim(npc, DIE,      "Death", "Possesed",   10);
+        LoadAnim(npc, HURT,     "Hurt", "Possesed",    4);
 
         scene.AddNPC(npc);
+    }
+
+    
+    for (int n = 0; n < scene.merchantSpawnCount; n++)
+    {
+        Merchant* m = new Merchant(
+            "Merchan-Man",
+            scene.merchantSpawnPositions[n]->Position() + (Vector3){0, 0.75f, 0},
+            {"Weak Health Potion", "Potent Health Potion"}
+        );
+        
+        LoadAnim(m, IDLE, "Idle", "Man", 12);
+
+        scene.AddNPC(m);
     }
 }
 
@@ -786,35 +848,23 @@ void GlobalInfo::LoadThings()
 {
     Assets();
     PlayerInfo();
-    LoadNPCs();
     LoadDialogueBox();
 }
 
 void GlobalInfo::UnloadThings()
 {
-    for (auto model : models) 
+    for (const auto& model : models) 
     {
         UnloadModel(model.second);
     }
-    for (auto tex : textures) 
+    for (const auto& tex : textures) 
     {
         UnloadTexture(tex.second);
     }
 
-    for (int i = 0; i <= 4; i++) 
+    for (const auto& sprite : sprites)
     {
-        for (int j = 0; j < 4; j++) 
-        {
-            UnloadTexture(scene.player->anims[i][j]);
-        }
-    }
-
-    // Unload NPC textures
-    for (int n = 0; n < scene.npcCount; n++)
-    {
-        for (int i = 0; i < 7; i++)
-            for (int j = 0; j < 4; j++)
-                UnloadTexture(scene.npcs[n]->anims[i][j]);
+        UnloadTexture(sprite.second);
     }
 }
 
@@ -918,16 +968,167 @@ void Inventory::RemoveItem(int idx)
 
 Inventory::~Inventory()
 {
-    for (int i = 0; i<itemsCount[0]; i++)
-        delete items[i];
-    
-    for (int i = 0; i<itemsCount[1]; i++)
-        delete items[i];
+    for (int i = 0; i<MAX_SLOTS; i++)
+    {
+        for (int j = 0; j<itemsCount[i]; j++)
+            delete items[i][j];
+        
+        delete[] items[i];
+    }
 }
 
 // NPC ==================================================================================================================================================================================
 
 NPC::~NPC() {}
+
+// Merchant ==================================================================================================================================================================================
+
+void Merchant::DialogueSetup()
+{
+    dialogueIdx = 0;
+}
+
+void Merchant::Dialogue()
+{
+    if (dialogueIdx == -1)
+    {
+        gI.scene.dialogueVisible = false;
+        return;
+    }
+
+    // Dynamically populate sell menu from player inventory
+    if (dialogueIdx == 2 && gI.scene.player)
+    {
+        Player* pl = gI.scene.player;
+        auto& sellChoices = dialogues[2].choices;
+        sellChoices[0].second = (pl->_Inventory().itemsCount[0] > 0) ? pl->_Inventory().items[0][0]->Name() : "Nothing";
+        sellChoices[1].second = (pl->_Inventory().itemsCount[1] > 0) ? pl->_Inventory().items[1][0]->Name() : "Nothing";
+    }
+
+    Banner* banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
+    if (banner) banner->_Text()._Text(dialogues[dialogueIdx].dialogue);
+
+    banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueSpeakerTextIdx]);
+    if (banner) banner->_Text()._Text(name);
+ 
+    for (const auto& choice : dialogues[dialogueIdx].choices)
+    {
+        banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.choice1Idx+choice.first]);
+        if (banner) banner->_Text()._Text(to_string(choice.first+1)+". "+choice.second.second);
+    }
+    
+    int inp = GetKeyPressed();
+     
+    if (inp >= '1' && inp <= '3')
+    {
+        int choiceIdx = inp - '1';
+        auto it = dialogues[dialogueIdx].choices.find(choiceIdx);
+        if (it == dialogues[dialogueIdx].choices.end()) return;
+
+        string choiceText = it->second.second;
+
+        // --- Buy logic (node 1 -> buying an item) ---
+        if (dialogueIdx == 1 && choiceIdx < 2 && choiceText != "Back")
+        {
+            Player* pl = gI.scene.player;
+            if (pl)
+            {
+                for (int p = 0; p < 7; p++)
+                {
+                    if (gI.potions[p].Name() == choiceText)
+                    {
+                        if (pl->Coins() <= gI.potions[p].Price()) break;
+
+                        try { pl->BuyItem(new Potion(gI.potions[p])); }
+                        catch(...) {}
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (dialogueIdx == 2 && choiceIdx < 2 && choiceText != "Nothing" && choiceText != "Back")
+        {
+            Player* pl = gI.scene.player;
+            if (pl)
+            {   
+                try { pl->SellItem(choiceText);}
+                catch(...) {}
+            }
+        }
+
+        dialogueIdx = dialogues[dialogueIdx].choices[choiceIdx].first;
+    }
+}
+
+void Merchant::DrawCharacter()
+{
+    if (anims[IDLE][0].id == 0) return;
+
+    int i = IDLE; // merchant always idle
+
+    if (i != merchantLastState)
+    {
+        currentFrame = 0;
+        frameTimer = 0.0f;
+        merchantLastState = i;
+    }
+
+    Texture2D anim[4] = {anims[i][0], anims[i][1], anims[i][2], anims[i][3]};
+
+    frameTimer += gI.dT;
+    if (frameTimer >= 0.12f)
+    {
+        frameTimer = 0.0f;
+        if (anim[currDir].id > 0 && anim[currDir].width > 0)
+        {
+            int maxFrames = anim[currDir].width / (int)frameWidth[i];
+            currentFrame = (currentFrame + 1) % maxFrames;
+        }
+        else currentFrame = 0;
+    }
+
+    Rectangle sourceRec = {
+        (float)currentFrame * frameWidth[i],
+        0,
+        (float)frameWidth[i],
+        (float)anim[currDir].height
+    };
+
+    if (!gI.scene.player) return;
+
+    AnimationData animData =
+    {
+        gI.scene.player->Camera(),
+        anim[currDir],
+        sourceRec,
+        position,
+        (Vector2){ size * 2, size * 2 },
+        WHITE
+    };
+
+    gI.scene.billboards[name] = animData;
+}
+
+void Merchant::DrawInteractPrompt()
+{
+    if (!gI.scene.player || gI.scene.dialogueVisible) return;
+
+    Vector3 toPlayer = {
+        gI.scene.player->Position().x - position.x,
+        0,
+        gI.scene.player->Position().z - position.z
+    };
+    float dist = Magnitude(toPlayer);
+    if (dist <= gI.INTERACT_RANGE)
+    {
+        Vector2 screenPos = GetWorldToScreen(
+            {position.x, position.y + 1.5f, position.z},
+            gI.scene.player->Camera()
+        );
+        DrawText("[E] Talk", (int)screenPos.x - 30, (int)screenPos.y - 10, 20, YELLOW);
+    }
+}
 
 // PossessedNPC ==================================================================================================================================================================================
 
@@ -1058,7 +1259,7 @@ void PossessedNPC::DrawCharacter()
         anim[currDir],
         sourceRec,
         position,
-        (Vector2){ size * 2, size * 2 },
+        (Vector2){ size, size },
         WHITE
     };
 
@@ -1075,6 +1276,38 @@ void Player::TakeDamage(float amount)
     hurtTimer = 0.3f;
 
     currHealth -= (amount/armour);
+}
+
+I_Dialogueable* interactNPC = nullptr;
+void Player::Dialogue()
+{
+    bool interacted = IsKeyPressed(gI.INTERACT_KEY);
+    if (interacted)
+    {
+        for (int i = 0; i<gI.scene.npcCount; i++)
+        {
+            if (Vector3Distance(gI.scene.npcs[i]->Position(), position)>gI.INTERACT_RANGE) continue;
+            
+            interactNPC = dynamic_cast<I_Dialogueable*>(gI.scene.npcs[i]);
+            break;
+        }
+    }
+
+    if (interactNPC && interacted)
+    {
+        if (gI.scene.dialogueVisible)
+        {
+            gI.scene.dialogueVisible = false;
+        }
+        else
+        {
+            gI.scene.dialogueVisible = true;
+            interactNPC->DialogueSetup();
+        }
+    }
+
+    if (gI.scene.dialogueVisible)
+        interactNPC->Dialogue();
 }
 
 float jT=0, yPos=0;
@@ -1160,7 +1393,7 @@ void Player::Update()
 bool attackHitDealt = false;
 void Player::Attack()
 {
-    if (currHealth < 0) return;
+    if (currHealth < 0 || gI.scene.dialogueVisible) return;
     
     if (IsKeyPressed(gI.ATTACK_KEY) || IsMouseButtonPressed(gI.ATTACK_KEY_MOUSE)) state = ATTACKING;
 
@@ -1174,9 +1407,9 @@ void Player::Attack()
     {
         attackHitDealt = true;
         const float PLAYER_ATTACK_RANGE = 1.5f;
-        for (int i = 0; i < gI.scene.npcCount; i++)
+        for (int i = 0; i < gI.scene.enemyCount; i++)
         {
-            PossessedNPC* npc = gI.scene.npcs[i];
+            PossessedNPC* npc = gI.scene.enemies[i];
 
             if (npc->State() == DIE) continue;
 
@@ -1237,7 +1470,7 @@ void Player::DrawCharacter()
         anim[currDir],
         sourceRec,
         position,
-        (Vector2){ size*2, size*2 },
+        (Vector2){ size, size},
         WHITE
     };
 
@@ -1247,27 +1480,27 @@ void Player::DrawCharacter()
 void Player::CalculateIsGrounded()
 {
     isGrounded = false;
-    if (position.y<=size/2+0.1f)
+    if (position.y<=0.65f)
     {
          isGrounded = true;
-         position.y = size/2+0.1f;
+         position.y = 0.65f;
          return;
 
     }
-    for (int i = 0; i<gI.scene.objectCount; i++) 
-    {
-        groundInfo = GetRayCollisionBox(groundRay, gI.scene.objects[i]->Boundary());
+    // for (int i = 0; i<gI.scene.objectCount; i++) 
+    // {
+    //     groundInfo = GetRayCollisionBox(groundRay, gI.scene.objects[i]->Boundary());
 
-        if (groundInfo.hit)
-        {
-            if (groundInfo.distance<=0.2f)
-            {
-                isGrounded = true;
-                break;
-            }
+    //     if (groundInfo.hit)
+    //     {
+    //         if (groundInfo.distance<=0.2f)
+    //         {
+    //             isGrounded = true;
+    //             break;
+    //         }
             
-        }
-    }
+    //     }
+    // }
 }
 
 void Player::StateUpdate()
@@ -1305,10 +1538,15 @@ void Player::InvUI_Update()
     
     tx = dynamic_cast<Text*>(gI.scene.ui[i2]);
     if (tx) tx->_Text((inventory.itemsCount[1]==0?"No Item In Slot": ( inventory.items[1][0]->Name()+" x"+to_string( inventory.itemsCount[1]) ) ) );
+
+        tx = dynamic_cast<Text*>(gI.scene.ui[coinsIdx]);
+    if (tx) tx->_Text( to_string(coins) + " Coins" );
 }
 
 void Player::UpdateEffects()
 {
+    if (gI.scene.dialogueVisible) return;
+
     int inp = (IsKeyPressed(gI.INV_1))?0:(IsKeyPressed(gI.INV_2)?1:-1);
 
     if (inp>=0 && inventory.itemsCount[inp]>0)
@@ -1329,7 +1567,7 @@ void Player::UpdateEffects()
     map<int, float> temp = effects;
     vector<int> damageBoosts;
     
-    for (auto effect : temp)
+    for (const auto& effect : temp)
     {
         switch(effect.first)
         {

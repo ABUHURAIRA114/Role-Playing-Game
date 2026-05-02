@@ -35,7 +35,7 @@ struct UIGrid;
 struct GlobalInfo;
 class SaveSystem;
 
-class I_Dialoguable;
+class I_Dialogueable;
 
 class Item;
 class Potion;
@@ -45,4 +45,5 @@ class Player;
 class NPC;
 class Civilians;
 class PossessedNPC;
-class Merchant; 
+class Merchant;
+class MerchantNPC;

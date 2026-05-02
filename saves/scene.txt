@@ -4,8 +4,8 @@ Wall_East DEF_MOD 20 1 0 0 0 0 1 EL : -->
 Wall_West DEF_MOD -20 1 0 0 0 0 1 EL : --> 
 Wall_NE_Corner DEF_MOD 20 1 -20 0 0 0 1 EL : --> 
 Wall_NW_Corner DEF_MOD -20 1 -20 0 0 0 1 EL : --> 
-Wall_SE_Corner DEF_MOD 20 1 20 0 0 0 1 EL : --> 
-Wall_SW_Corner DEF_MOD -20 1 20 0 0 0 1 EL : --> 
+Wall_SE_Corner DEF_MOD 20 0.630725 20 0 0 0 1 EL : --> 
+Wall_SW_Corner DEF_MOD -20 0.200763 20 0 0 0 1 EL : --> 
 Pillar_NE DEF_MOD 8 1 -8 0 0 0 2 EL : --> 
 Pillar_NW DEF_MOD -8 1 -8 0 0 0 2 EL : --> 
 Pillar_SE DEF_MOD 8 1 8 0 0 0 2 EL : --> 
@@ -18,7 +18,7 @@ CoverBlock_E1 DEF_MOD 13 0.5 -4 0 0 0 1.5 EL : -->
 CoverBlock_E2 DEF_MOD 13 0.5 4 0 0 0 1.5 EL : --> 
 CoverBlock_W1 DEF_MOD -13 0.5 -4 0 0 0 1.5 EL : --> 
 CoverBlock_W2 DEF_MOD -13 0.5 4 0 0 0 1.5 EL : --> 
-Crate_Center_A Crate 1.83717 0 -2.20462 0 0 0 1 EL : --> 
+Crate_Center_A Crate 1.43388 0 -3.58091 0 0 0 1 EL : --> 
 Crate_Center_B Crate -5.04247 0 2.5014 0 0 0 1 EL : --> 
 Crate_Center_C Crate 0 0 4.61031 0 0.785 0 1 EL : --> 
 Crate2_North_A Crate_2 -5 0 -16 0 0 0 1 EL : --> 
@@ -43,3 +43,7 @@ Pillar_2 DEF_MOD -8 1 8 0 0 0 2 EL : -->
 Pillar_3 DEF_MOD 8 1 8 0 0 0 2 EL : --> 
 BoxObject DEF_MOD -2.53499 0 -0.874937 -0.635248 -1.1803 0 1 EL : --> 
 Gameobject Balcony_Cross_Corner 0 0 5.41927 0 0 0 1 EL : --> 
+ENEMY_SPAWNER ENEMY_SPAWNER 0 0 15.6683 0 0 0 1 EL : --> 
+ENEMY_SPAWNER ENEMY_SPAWNER 0 0 -9.74833 0 0 0 1 EL : --> 
+ENEMY_SPAWNER ENEMY_SPAWNER -4.14786 0 8.1749 0 0 0 1 EL : --> 
+MERCHANT_SPAWNER MERCHANT_SPAWNER 19.0968 0 12.9223 0 0 0 1 EL : --> 

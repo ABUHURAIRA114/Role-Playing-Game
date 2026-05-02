@@ -3,14 +3,15 @@
 
 struct DialogueNodes
 {
-    int choiceID;
     string dialogue;
-    map<int, pair<string, int>> choices;
+    map<int, pair<int, string>> choices;
 };
 
 class I_Dialogueable
 {
     public:
+    int dialogueIdx = 0;
+    virtual void DialogueSetup() = 0;
     virtual void Dialogue() = 0;
 };
 
@@ -57,32 +58,51 @@ struct Scene
     RayCollision selectionRayCollision;
     Player* player;
 
+    Box** enemySpawnPositions;
+    int enemySpawnCount;
+    Box** civilSpawnPositions;
+    int civilSpawnCount;
+    Box** merchantSpawnPositions;
+    int merchantSpawnCount;
+
     RectTransform **ui;
     int uiCount;
     int dialogueSpeakerTextIdx, dialogueTextIdx,
     choice1Idx;
 
-    PossessedNPC **npcs;
+    PossessedNPC **enemies;
+    int enemyCount;
+
+    NPC **npcs;
     int npcCount;
+
+    bool dialogueVisible;
 
     map<string, AnimationData> billboards;
 
-    Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), npcs(nullptr), npcCount(0), sceneCamera() {}
+    Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), enemies(nullptr),
+    enemyCount(0), merchantSpawnPositions(nullptr), merchantSpawnCount(0), civilSpawnPositions(nullptr), civilSpawnCount(0), 
+    enemySpawnPositions(nullptr), enemySpawnCount(0), dialogueVisible(false), sceneCamera() {}
+
     ~Scene();
-    void AddObject(Box* newObject, int);
-    void AddUIObject(RectTransform* newObject, int);
-    void AddNPC(PossessedNPC* npc);
-    void RemoveObject(int index);
-    void RemoveUIObject(int index);   
-    int FindObjectIndex(string name);
-    int FindUIObjectIndex(string name);
+
+    void AddSpawnObject(Box*, Box**&, int&, int);
+
+    void AddObject(Box*, int);
+    void AddUIObject(RectTransform*, int);
+    void AddNPC(PossessedNPC*);
+    void AddNPC(NPC*);
+    void RemoveObject(int);
+    void RemoveUIObject(int);   
+    int FindObjectIndex(string);
+    int FindUIObjectIndex(string);
     void ObjectSpawn();
-    
+
     void SelectionMove();
     void SpeedScroll();
     void DrawScene();
     void DrawSceneUI();
-    void SelectObject(Ray ray);
+    void SelectObject(Ray);
     void UpdateNPCs();
 };
 
@@ -90,14 +110,15 @@ class Item
 {
     protected:
     string name;
-    bool essential;
     int price;
 
     public:
-    Item(string name="Item", bool essential=false, int price=0) : name(name), essential(essential), price(price) {}
+    Item(string name="Item", int price=1) : name(name), price(price) {}
     virtual ~Item() {}
-
+    
+    virtual Item* Clone() = 0;
     string Name() { return name; }
+    int Price() { return price; }
 };
 
 class Potion : public Item
@@ -106,8 +127,9 @@ class Potion : public Item
     int magnitude;
 
     public:
-    Potion(string name="Potion", bool essesntial=false, int effectType=HEALTH_REGEN, int magnitude=50) : Item(name, essential), effectType(effectType), magnitude(magnitude) {}
+    Potion(string name="Potion", int effectType=HEALTH_REGEN, int magnitude=50, int price=2) : Item(name, price), effectType(effectType), magnitude(magnitude) {}
 
+    Item* Clone() { return new Potion(*this); }
     void ApplyEffect(Player& player);
 };
 
@@ -118,6 +140,7 @@ struct GlobalInfo
     const float MAX_SPEED = 20;
     const float WHEEL_SENSITIVITY = 1.0f;
     const float BAR_WIDTH = 300;
+    const float INTERACT_RANGE = 2.5f;
 
     const int FREE_CAMERA_KEY = MOUSE_BUTTON_RIGHT;
     const int SELECTION_KEY = MOUSE_BUTTON_LEFT;
@@ -131,10 +154,14 @@ struct GlobalInfo
     const int ATTACK_KEY_MOUSE = MOUSE_BUTTON_LEFT;
     const int INV_1 = KEY_ONE;
     const int INV_2 = KEY_TWO;
+    const int INTERACT_KEY = KEY_E;
     
     const string MODELS_FOLDER_PATH = "./assets/models"; 
     const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
     const string SPRITES_FOLDER_PATH = "./assets/sprites"; 
+    const string ENEMY_SPAWNER_NAME = "ENEMY_SPAWNER"; 
+    const string CIVIL_SPAWNER_NAME = "CIVIL_SPAWNER"; 
+    const string MERCHANT_SPAWNER_NAME = "MERCHANT_SPAWNER"; 
     
     const string SAVE_FOLDER_PATH = "./saves"; 
     const string DEFAULT_MODEL_NAME = "DEF_MOD";
@@ -142,6 +169,7 @@ struct GlobalInfo
     
     map<string, Model> models;
     map<string, Texture2D> textures;
+    map<string, Texture2D> sprites;
     Scene scene;
     float dT;
     
@@ -153,7 +181,7 @@ struct GlobalInfo
 
     Potion potions[7];
 
-    void LoadAnim(Character* npc, int stateIdx, const string& stateName,const string& name, int frameCount, const string& spritesPath);
+    void LoadAnim(Character* npc, int stateIdx, const string& stateName,const string& name, int frameCount);
 
     void Shade(), LoadThings(), PlayerInfo(), Assets(), LoadDialogueBox(), LoadNPCs(), UnloadThings();
     private:
@@ -197,6 +225,24 @@ class Box : public TransformMI
     public:
 
     Box(string name = "BoxObject", Vector3 position = {0, 0, 0}, Vector3 rotation = {0,0,0}, float size = 1, string assetName = gI.DEFAULT_MODEL_NAME) : TransformMI(name, position, rotation, size),
+    assetName(assetName)
+    { 
+        model = gI.models[assetName];
+        try 
+        {
+            Texture2D tex = gI.textures.at(assetName);
+            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = tex;
+        }
+        catch(out_of_range& e)
+        {
+            cout<<"Texture not found in map : "<<e.what()<<endl;;
+        }
+        
+        UpdateBoundary(); 
+        UpdateRotation();
+    }
+
+    Box(string name = "BoxObject", string assetName = gI.DEFAULT_MODEL_NAME) : TransformMI(name, {0,0,0}, {0,0,0}, 1),
     assetName(assetName)
     { 
         model = gI.models[assetName];
@@ -323,6 +369,19 @@ class Inventory
     public:
 
     Inventory() : items({nullptr, nullptr}), itemsCount({0,0}) {}
+    Inventory(const Inventory& inv) 
+    {
+        for (int i = 0; i<MAX_SLOTS; i++)
+        {
+            itemsCount[i] = inv.itemsCount[i];
+
+            items[i] = new Item*[itemsCount[i]];
+            
+            for (int j = 0; j<itemsCount[i]; j++)
+                items[i][j] = inv.items[i][j]->Clone();
+        }
+    }
+
     ~Inventory();
 
     void AddItem(Item* item);
@@ -330,6 +389,7 @@ class Inventory
     int FindItem(string name);
 
     friend class Player;
+    friend class Merchant;
 };
 
 class Character : public TransformMI
@@ -352,7 +412,7 @@ class Character : public TransformMI
     
     public:
     Character(string name = "RJoe", float maxHealth=100, float speed=1, Vector3 position={0,0,0}, Vector3 target={0,0,0}, int damage = 10)
-    : TransformMI(name, position, {0,0,0}, 1), maxHealth(maxHealth), currHealth(maxHealth), speed(speed), target(target), hurtTimer(0),
+    : TransformMI(name, position, {0,0,0}, 2), maxHealth(maxHealth), currHealth(maxHealth), speed(speed), target(target), hurtTimer(0),
     yVelocity(0), state(0), damage(damage), currDamage(damage), speedMultiplier(1.0f) {}
     virtual ~Character() = 0;
 
@@ -371,7 +431,7 @@ class Character : public TransformMI
     virtual void DrawCharacter() {}
     virtual void Attack() {}
 
-    friend void GlobalInfo::LoadAnim(Character* npc, int stateIdx, const string& stateName,const string& name, int frameCount, const string& spritesPath);
+    friend void GlobalInfo::LoadAnim(Character* npc, int stateIdx, const string& stateName,const string& name, int frameCount);
 };
 
 class Player : public Character
@@ -384,13 +444,16 @@ class Player : public Character
     float camDist;
     map<int, float> effects;
     Inventory inventory;
-    int healthBarIdx, staminaBarIdx;
+    int healthBarIdx, staminaBarIdx, coinsIdx;
+    int coins;
 
     int charisma, strength, armour;
 
     public:
     Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 1, float healthRegenRate = 0.5f, float speed=4, int damage = 10, int strength = 5, int charisma = 5, int armour = 5, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
-    : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), currStamina(maxStamina), staminaRegenRate(staminaRegenRate), healthRegenRate(healthRegenRate), charisma(charisma), strength(strength), armour(armour)
+    : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), 
+    currStamina(maxStamina), staminaRegenRate(staminaRegenRate), healthRegenRate(healthRegenRate), 
+    charisma(charisma), strength(strength), armour(armour), coins(50)
     {
         camera.fovy = 95.0f;
         camera.position = {position.x, position.y+camDist, position.z+camDist};
@@ -407,6 +470,9 @@ class Player : public Character
     Vector3 Target() { return target; }
     bool IsGrounded() { return isGrounded; }
     Camera3D Camera() { return camera; }
+    Inventory _Inventory() { return inventory; }
+    int Coins() { return coins; }
+    int CurrDamage() { return currDamage; }
     
     void AddItem(Item* value) 
     {
@@ -419,21 +485,34 @@ class Player : public Character
         catch(...) { throw; }
         InvUI_Update();
     }
-
-    int CurrDamage() { return currDamage; }
-
-    void CurrHealth(float value) 
+    void BuyItem(Item* value)
     {
-        currHealth = value; 
+        try
+        { inventory.AddItem(value); }
+        catch(const failed_execution& e) { throw; }
+        catch(const out_of_space& e) { throw; }
+        catch(const empty_collection& e) { throw; }
+        catch(const out_of_range& e) { throw; }
+        catch(...) { throw; }
+        InvUI_Update();        
+        coins -= value->Price();
     }
-    void Speed(float value) { this->speed = value; }
+    void SellItem(string value)
+    {
+        int idx = inventory.FindItem(value);
+        if (idx<0) return;
+
+        try { coins += inventory.items[idx][0]->Price();  inventory.RemoveItem(idx); InvUI_Update(); }
+        catch(const out_of_range& e) { throw; }
+        catch(const empty_collection& e) { throw; }
+    }
     void Target(Vector3 value) { target= value; }
-    void _Inventory(Inventory value) { inventory = value; }
+    void CurrHealth(int value) { currHealth = value; }
 
     void TakeDamage(float amount);
 
     void CalculateIsGrounded();
-    void Update(), UpdateEffects();
+    void Update(), UpdateEffects(), Dialogue();
     int i1, i2; // inventory ui indices
 
     void InvUI_Update();
@@ -510,47 +589,58 @@ class Merchant : public NPC, public I_Dialogueable
 {
     DialogueNodes dialogues[3];
 
+    // animation (mirrors PossessedNPC)
+    int  merchantLastState;
+    bool merchantAnimEnd;
+
+    int gold;
+
     public:
-Merchant(string name = "Merchant-Man", Vector3 position = {0,0,0}, vector<string> items = {})
-    : NPC(name, 100, 0, position, FRIENDLY, 0)
+    Merchant(string name = "Merchant-Man", Vector3 position = {0,0,0}, vector<string> items = {})
+    : NPC(name, 100, 0, position, FRIENDLY, 0),
+      merchantLastState(-1), merchantAnimEnd(false), gold(500)
     {
         dialogues[0] = 
         {   
-            1, "Hello ma'nigga, what do you want?",
+            "I'd even buy one of your relatives, if you're looking to sell! Ha ha ha... That's a little joke.",
             {
-                {0, {"Buy", 2}},
-                {1, {"Sell", 3}},
-                {2, {"Back", -1}}
+                {0, {1 , "Buy" }},
+                {1, {2 , "Sell"}},
+                {2, {-1 , "Farewell"}}
             }
         };
+
+        string buyItem0 = items.size()>0 ? items[0] : "Weak Health Potion";
+        string buyItem1 = items.size()>1 ? items[1] : "Potent Health Potion";
 
         dialogues[1] = 
         {   
-            1, "Hello ma'nigga, what do you want?",
+            "Some people call these junk, me? I call them treasure.",
             {
-                {0, {items[0], 2}},
-                {1, {items[1], 2}},
-                {2, {"Back", -1}}
+                {0, {1, buyItem0}},
+                {1, {1, buyItem1}},
+                {2, {0, "Back"}}
+            }
+        };
+
+        dialogues[2] = 
+        {   
+            "Look, you need coin, I need merchandise. It's a beautiful relationship.",
+            {
+                {0, {2, "Slot 1 Item"}},
+                {1, {2, "Slot 2 Item"}},
+                {2, {0, "Back"}}
             }
         };
     }
+    
+    void DialogueSetup();
+    void Dialogue();
+    void Update() {}   // stays in place
+    void DrawCharacter();
+    void DrawInteractPrompt();
 
-    void Dialogue()
-    {
-        Banner* banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
-
-        string text = "Hello ma'nigga, what do you want?";
-        if (banner) banner->_Text()._Text(text);
-
-        banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueSpeakerTextIdx]);
-        if (banner) banner->_Text()._Text(name);
-
-        for (const auto& choice : dialogues[1].choices)
-        {
-            banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.choice1Idx+choice.first]);
-            if (banner) banner->_Text()._Text(choice.second.first);
-        }
-    }
+    friend void GlobalInfo::UnloadThings();
 };
 
 
