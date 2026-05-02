@@ -7,6 +7,7 @@ int mode;
 
 void Start()
 {
+    srand(time(0)); 
     gI.scene.sceneCamera.speed = 1.0f;
     gI.scene.sceneCamera.sensitivity = 0.5f;
     gI.scene.AddUIObject(new Button("Button 1", "Enemy Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 30}, (Vector2){200, 40}, 20, MAROON));

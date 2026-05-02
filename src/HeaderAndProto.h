@@ -43,7 +43,7 @@ class Inventory;
 class Character;
 class Player;
 class NPC;
-class Civilians;
+class Civilian;
 class PossessedNPC;
 class Merchant;
 class MerchantNPC;

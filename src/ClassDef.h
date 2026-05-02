@@ -80,7 +80,7 @@ struct Scene
 
     map<string, AnimationData> billboards;
 
-    Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), enemies(nullptr),
+    Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), enemies(nullptr), npcs(nullptr), npcCount(0),
     enemyCount(0), merchantSpawnPositions(nullptr), merchantSpawnCount(0), civilSpawnPositions(nullptr), civilSpawnCount(0), 
     enemySpawnPositions(nullptr), enemySpawnCount(0), dialogueVisible(false), sceneCamera() {}
 
@@ -140,7 +140,7 @@ struct GlobalInfo
     const float MAX_SPEED = 20;
     const float WHEEL_SENSITIVITY = 1.0f;
     const float BAR_WIDTH = 300;
-    const float INTERACT_RANGE = 2.5f;
+    const float INTERACT_RANGE = 1.5f;
 
     const int FREE_CAMERA_KEY = MOUSE_BUTTON_RIGHT;
     const int SELECTION_KEY = MOUSE_BUTTON_LEFT;
@@ -173,6 +173,29 @@ struct GlobalInfo
     Scene scene;
     float dT;
     
+    /// @brief  size-->9
+    const string CIVIL_GREETINGS[9] = {
+        "I've got work to do, so make it quick.",           "Hmm? Oh, sorry. I was lost in thought.",               "Things have been strange lately. Best to keep your head down.",
+        "I don't sleep well anymore. None of us do.",       "Just keep moving. This place isn't safe after dark.",  "Another day, another struggle.",
+        "What do you want?",                                "You're blocking my light.",                            "Stay safe out there. These roads aren't what they used to be."
+    };
+        
+    /// @brief  size-->5
+    const string MERCHANT_GREETINGS[5] = {
+        "Man welcomes you, and also your coin.", "Man has wares, if you have coin.", "The roads of Waloon can be treacherous. If you must walk them, be wary.", "The roads of Waloon lead to many dangers.", "It is a strange sight, the white flakes that sometimes fall from the sky."
+    };
+
+    /// @brief  size-->5
+    const string MERCHANT_SELL[5] = {
+        "Got a pretty full stock of potions and alchemy reagents.", "So you're interested in my potions and ingredients?", "Looking to protect yourself, or deal some damage?", "Oh, a bit of this and a bit of that.", "Some may call this junk. Me, I call them treasures."  
+    };
+
+    /// @brief  size-->5
+    const string MERCHANT_BUY[5] = {
+        "Coin's coin. What are you selling?", "Look, you need coin, I need merchandise. It's a beautiful relationship.", "I'll take a look, but don't expect me to get excited.", "Let's see what you've got. I'll give you a fair price... well, fair for me.", "I don't ask where things come from. Makes business easier."
+    };
+
+    /// @brief  size-->7
     const string POTION_NAMES[7] = {
         "Weak Health Potion", "Mid Health Potion", "Potent Health Potion",
         "Weak Stamina Potion", "Mid Stamina Potion", "Potent Stamina Potion",
@@ -400,7 +423,7 @@ class Character : public TransformMI
     RayCollision rayInfo;
     bool isGrounded;
 
-    Texture2D anims[7][4] = {}; // 0: Down, 1: Left, 2: Right, 3: Up
+    Texture2D anims[6][4] = {}; // 0: Down, 1: Left, 2: Right, 3: Up
     float frameTimer = 0.0f, frameWidth[7] = {};  
     int currentFrame = 0, currDir = 0;
     float hurtTimer;       // countdown between attacks
@@ -436,24 +459,32 @@ class Character : public TransformMI
 
 class Player : public Character
 {
+    int charisma, strength, armour;
     float maxStamina, currStamina, staminaRegenRate, healthRegenRate;
+    int coins;
+
     Ray groundRay;
     RayCollision groundInfo;
-    bool hasJumped;
+
     Camera3D camera;
     float camDist;
     map<int, float> effects;
     Inventory inventory;
-    int healthBarIdx, staminaBarIdx, coinsIdx;
-    int coins;
 
-    int charisma, strength, armour;
+    int healthBarIdx, staminaBarIdx, coinsIdx;
+
+    I_Dialogueable* interactNPC;
+    
+    int lastState;
+    bool hasJumped;
+    bool attackHitDealt, animEnd, isSprinting;
+    float jT=0;
 
     public:
     Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 1, float healthRegenRate = 0.5f, float speed=4, int damage = 10, int strength = 5, int charisma = 5, int armour = 5, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
     : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), 
-    currStamina(maxStamina), staminaRegenRate(staminaRegenRate), healthRegenRate(healthRegenRate), 
-    charisma(charisma), strength(strength), armour(armour), coins(50)
+    currStamina(maxStamina), staminaRegenRate(staminaRegenRate), healthRegenRate(healthRegenRate), interactNPC(nullptr), attackHitDealt(true),
+    charisma(charisma), strength(strength), armour(armour), coins(50), lastState(-1), animEnd(false)
     {
         camera.fovy = 95.0f;
         camera.position = {position.x, position.y+camDist, position.z+camDist};
@@ -473,6 +504,7 @@ class Player : public Character
     Inventory _Inventory() { return inventory; }
     int Coins() { return coins; }
     int CurrDamage() { return currDamage; }
+    int Charisma() { return charisma; }
     
     void AddItem(Item* value) 
     {
@@ -485,7 +517,7 @@ class Player : public Character
         catch(...) { throw; }
         InvUI_Update();
     }
-    void BuyItem(Item* value)
+    void BuyItem(Item* value, int coins)
     {
         try
         { inventory.AddItem(value); }
@@ -495,14 +527,14 @@ class Player : public Character
         catch(const out_of_range& e) { throw; }
         catch(...) { throw; }
         InvUI_Update();        
-        coins -= value->Price();
+        this->coins -= coins;
     }
-    void SellItem(string value)
+    void SellItem(string value, int coins)
     {
         int idx = inventory.FindItem(value);
         if (idx<0) return;
 
-        try { coins += inventory.items[idx][0]->Price();  inventory.RemoveItem(idx); InvUI_Update(); }
+        try { this->coins += coins;  inventory.RemoveItem(idx); InvUI_Update(); }
         catch(const out_of_range& e) { throw; }
         catch(const empty_collection& e) { throw; }
     }
@@ -543,16 +575,26 @@ class NPC : public Character
     virtual int State() { return state; }
 };
 
-class Civilians : public NPC, public I_Dialogueable
+class Civilian : public NPC, public I_Dialogueable
 {
+    DialogueNodes dialogues[1];
+
+
     public:
-    Civilians(string name = "NPC", float maxHealth = 60, float speed = 2, Vector3 position = {0, 0, 0},
-    int relation = FRIENDLY, int damage = 8)
-    : NPC(name, maxHealth, speed, position, relation, damage) {}
-    
-    void Dialogue()
-    {
+    Civilian(string name = "NPC", Vector3 position = {0, 0, 0}, float size = 2, int direction = DOWN)
+    : NPC(name, 0, 0, position, FRIENDLY, 0) { 
+        this->size = size; currDir = direction;
+        dialogues[0].choices = {
+            {0, {-1, "Is that right?"}},
+            {1, {-1, "Hmmmmm..."}},
+            {2, {-1, "Farewell"}}
+        };
     }
+    ~Civilian() {}
+
+    void DrawCharacter();
+    void DialogueSetup();
+    void Dialogue();
 };
 
 class PossessedNPC : public NPC
@@ -588,18 +630,28 @@ class PossessedNPC : public NPC
 class Merchant : public NPC, public I_Dialogueable
 {
     DialogueNodes dialogues[3];
-
+    int buyPrices[2];
+    int sellPrices[2];
     // animation (mirrors PossessedNPC)
     int  merchantLastState;
     bool merchantAnimEnd;
+    float t;
 
-    int gold;
+    string greeting, sell, buy;
+    vector<string> items = {};
 
     public:
-    Merchant(string name = "Merchant-Man", Vector3 position = {0,0,0}, vector<string> items = {})
-    : NPC(name, 100, 0, position, FRIENDLY, 0),
-      merchantLastState(-1), merchantAnimEnd(false), gold(500)
+    Merchant(string name = "Merchant-Man", Vector3 position = {0,0,0}, vector<string> items = {}, float size = 2, int direction = DOWN)
+    : NPC(name, 0, 0, position, FRIENDLY, 0),
+      merchantLastState(-1), merchantAnimEnd(false)
     {
+        buyPrices[0]=0;
+        buyPrices[1]=0;
+        sellPrices[0]=0;
+        sellPrices[1]=0;
+
+        currDir = direction;
+        this->size = size;
         dialogues[0] = 
         {   
             "I'd even buy one of your relatives, if you're looking to sell! Ha ha ha... That's a little joke.",
@@ -610,15 +662,15 @@ class Merchant : public NPC, public I_Dialogueable
             }
         };
 
-        string buyItem0 = items.size()>0 ? items[0] : "Weak Health Potion";
-        string buyItem1 = items.size()>1 ? items[1] : "Potent Health Potion";
+        this->items.push_back(items.size()>0 ? items[0] : "Weak Health Potion");
+        this->items.push_back(items.size()>1 ? items[1] : "Potent Stamina Potion");
 
         dialogues[1] = 
         {   
             "Some people call these junk, me? I call them treasure.",
             {
-                {0, {1, buyItem0}},
-                {1, {1, buyItem1}},
+                {0, {1, "Item"}},
+                {1, {1, "Number 1"}},
                 {2, {0, "Back"}}
             }
         };

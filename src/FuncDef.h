@@ -455,6 +455,9 @@ Scene::~Scene()
     for (int i = 0; i < enemyCount; i++) delete enemies[i];
     delete[] enemies;
 
+    for (int i = 0; i < npcCount; i++) delete npcs[i]; 
+    delete[] npcs;
+
     for (int i = 0; i < enemySpawnCount; i++) delete enemySpawnPositions[i];
     delete[] enemySpawnPositions;
 
@@ -616,8 +619,11 @@ void GlobalInfo::LoadAnim(Character* c, int stateIdx, const string& stateName, c
     const char* dirs[4] = {"Down", "Left", "Right", "Up"};
     for (int d = 0; d < 4; d++)
     {
-        string path = name + dirs[d] + stateName;
-        c->anims[stateIdx][d] = sprites[path];
+        string sprite = name + dirs[d] + stateName;
+    
+        try
+        { c->anims[stateIdx][d] = sprites[sprite]; }
+        catch(...) { cout<<"Sprite "<<sprite<<" not found"<<endl; }
     }
 
     // frameWidth derived from texture width / frameCount
@@ -720,7 +726,7 @@ void GlobalInfo::LoadDialogueBox()
     scene.AddUIObject(new Banner("DIALOGUE_PANEL", "", (Vector2){posX + padding, posY + padding}, (Vector2){boxWidth - 2*padding, boxHeight - 2*padding}, 0, panelColor));
     // --- SPEAKER NAME ---
     scene.dialogueSpeakerTextIdx = scene.uiCount;
-    scene.AddUIObject(new Banner("DIALOGUE_NAME", "Speaker", (Vector2){posX + padding + 10, posY + padding + 5}, (Vector2){200, 40}, 23, borderColor));
+    scene.AddUIObject(new Banner("DIALOGUE_NAME", "Speaker", (Vector2){posX + padding + 10, posY + padding + 5}, (Vector2){300, 40}, 23, borderColor));
     // --- DIALOGUE TEXT ---
     scene.dialogueTextIdx = scene.uiCount;
     scene.AddUIObject(new Banner("DIALOGUE_TEXT", "Dialogue goes here...", (Vector2){posX + padding + 10, posY + padding + 50}, (Vector2){boxWidth - 40, boxHeight-70}, 25, DARKBROWN));
@@ -806,6 +812,28 @@ void GlobalInfo::Assets()
     potions[STRENGTH_POTION]        = Potion("Strength Potion", STRENGTH_BOOST, 60, 20);
 }
 
+string UnRepeatedPotion(string type, int tries = 10)
+{
+    string name = gI.potions[rand()%7].Name();
+    if (name.find(type) != string::npos && tries>0)
+        return UnRepeatedPotion(type, tries-1);
+    return name;
+}
+
+string Type(string name)
+{
+    if (name.find("Health") != string::npos)
+        return "Health";
+
+    if (name.find("Stamina") != string::npos)
+        return "Stamina";
+
+    if (name.find("Strength") != string::npos)
+        return "Strength";
+    
+    return "No Type";
+}
+
 void GlobalInfo::LoadNPCs()
 {
     cout<<"Enemy Spawn Count "<<scene.enemySpawnCount<<endl;
@@ -829,16 +857,38 @@ void GlobalInfo::LoadNPCs()
         scene.AddNPC(npc);
     }
 
+    string names[15] = {
+        "Merchant-Man",             "Little Lamb",              "Belathor",
+        "Man Of Many Skills",       "Grub",                     "Phillip Overcharge",
+        "Alchemove",                "Edmund Fleece",            "Qasim of Questionable Repute",
+        "He Who Can Be Named",      "He Who Doesn't Remain",    "The 8th Name",
+        "Barry the Barely-Honest",  "Khaas Khubaib",            "Aam Ali"
+    };
+
     
     for (int n = 0; n < scene.merchantSpawnCount; n++)
     {
+        string potion = potions[rand()%7].Name();
         Merchant* m = new Merchant(
-            "Merchan-Man",
-            scene.merchantSpawnPositions[n]->Position() + (Vector3){0, 0.75f, 0},
-            {"Weak Health Potion", "Potent Health Potion"}
+            names[rand()%15],
+            scene.merchantSpawnPositions[n]->Position() + (Vector3){0, 0.5f, 0},
+            {potion, UnRepeatedPotion(Type(potion))}, 3.0f
         );
         
         LoadAnim(m, IDLE, "Idle", "Man", 12);
+
+        scene.AddNPC(m);
+    }
+
+    for (int n = 0; n < scene.civilSpawnCount; n++)
+    {
+        string potion = potions[rand()%7].Name();
+        Civilian* m = new Civilian(
+            names[rand()%15],
+            scene.civilSpawnPositions[n]->Position() + (Vector3){0, 0.65f, 0}, 1.35f
+        );
+        
+        LoadAnim(m, IDLE, "Idle", "Old", 1);
 
         scene.AddNPC(m);
     }
@@ -899,7 +949,6 @@ void Character::Update()
         else if (az > 0.05f)
             currDir = (direction.z > 0) ? DOWN : UP;
     }
-
 }
 
 Character::~Character() {}
@@ -981,29 +1030,20 @@ Inventory::~Inventory()
 
 NPC::~NPC() {}
 
-// Merchant ==================================================================================================================================================================================
+// Civilian ==================================================================================================================================================================================
 
-void Merchant::DialogueSetup()
+void Civilian::DialogueSetup()
 {
+    target = (gI.scene.player!=nullptr?gI.scene.player->Position():(Vector3){0,0,0});
+    // Character::Update();
+
     dialogueIdx = 0;
+    dialogues[0].dialogue = gI.CIVIL_GREETINGS[rand()%9]; ;  
 }
 
-void Merchant::Dialogue()
+void Civilian::Dialogue()
 {
-    if (dialogueIdx == -1)
-    {
-        gI.scene.dialogueVisible = false;
-        return;
-    }
-
-    // Dynamically populate sell menu from player inventory
-    if (dialogueIdx == 2 && gI.scene.player)
-    {
-        Player* pl = gI.scene.player;
-        auto& sellChoices = dialogues[2].choices;
-        sellChoices[0].second = (pl->_Inventory().itemsCount[0] > 0) ? pl->_Inventory().items[0][0]->Name() : "Nothing";
-        sellChoices[1].second = (pl->_Inventory().itemsCount[1] > 0) ? pl->_Inventory().items[1][0]->Name() : "Nothing";
-    }
+    if (dialogueIdx == -1) return;
 
     Banner* banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
     if (banner) banner->_Text()._Text(dialogues[dialogueIdx].dialogue);
@@ -1022,57 +1062,15 @@ void Merchant::Dialogue()
     if (inp >= '1' && inp <= '3')
     {
         int choiceIdx = inp - '1';
-        auto it = dialogues[dialogueIdx].choices.find(choiceIdx);
-        if (it == dialogues[dialogueIdx].choices.end()) return;
-
-        string choiceText = it->second.second;
-
-        // --- Buy logic (node 1 -> buying an item) ---
-        if (dialogueIdx == 1 && choiceIdx < 2 && choiceText != "Back")
-        {
-            Player* pl = gI.scene.player;
-            if (pl)
-            {
-                for (int p = 0; p < 7; p++)
-                {
-                    if (gI.potions[p].Name() == choiceText)
-                    {
-                        if (pl->Coins() <= gI.potions[p].Price()) break;
-
-                        try { pl->BuyItem(new Potion(gI.potions[p])); }
-                        catch(...) {}
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (dialogueIdx == 2 && choiceIdx < 2 && choiceText != "Nothing" && choiceText != "Back")
-        {
-            Player* pl = gI.scene.player;
-            if (pl)
-            {   
-                try { pl->SellItem(choiceText);}
-                catch(...) {}
-            }
-        }
-
         dialogueIdx = dialogues[dialogueIdx].choices[choiceIdx].first;
     }
 }
 
-void Merchant::DrawCharacter()
+void Civilian::DrawCharacter()
 {
     if (anims[IDLE][0].id == 0) return;
 
-    int i = IDLE; // merchant always idle
-
-    if (i != merchantLastState)
-    {
-        currentFrame = 0;
-        frameTimer = 0.0f;
-        merchantLastState = i;
-    }
+    int i = IDLE;
 
     Texture2D anim[4] = {anims[i][0], anims[i][1], anims[i][2], anims[i][3]};
 
@@ -1103,7 +1101,168 @@ void Merchant::DrawCharacter()
         anim[currDir],
         sourceRec,
         position,
-        (Vector2){ size * 2, size * 2 },
+        (Vector2){ size, size },
+        WHITE
+    };
+
+    gI.scene.billboards[name] = animData;
+}
+
+// Merchant ==================================================================================================================================================================================
+
+void Merchant::DialogueSetup()
+{
+    dialogueIdx = 0;
+
+    dialogues[0].dialogue = gI.MERCHANT_GREETINGS[rand()%5];
+    dialogues[1].dialogue = gI.MERCHANT_SELL[rand()%5];
+    dialogues[2].dialogue = gI.MERCHANT_BUY[rand()%5];
+
+    Player* pl = gI.scene.player;
+
+    if (!pl) return;
+
+    target = pl->Position();
+    Character::Update();
+
+    t = (float)pl->Charisma() / 10.0f; // normalize 0-1
+    float multiplier = 1.0f - (t * t * 0.5f); // max 50% discount at charisma 10
+
+    for (int i = 0; i<2; i++)
+    {
+        for (int p = 0; p < 7; p++)
+            if (gI.potions[p].Name() == items[i])
+            {
+                buyPrices[i] = (int)ceil((float)gI.potions[p].Price()*multiplier);
+                break;
+            }
+    }
+
+    auto& buyChoices = dialogues[1].choices;
+    buyChoices[0].second = items[0] + " at "+to_string(buyPrices[0]);
+    buyChoices[1].second = items[1] + " at "+to_string(buyPrices[1]);
+}
+
+void Merchant::Dialogue()
+{
+    if (dialogueIdx == -1) return;
+
+    Player* pl = gI.scene.player;
+
+    if (!pl) return;
+
+    if (dialogueIdx == 2)
+    {
+        auto& sellChoices = dialogues[2].choices;
+
+        for (int i = 0; i<2; i++)
+        {
+            if (pl->_Inventory().itemsCount[i] <= 0) continue;
+
+            for (int p = 0; p < 7; p++)
+                if (gI.potions[p].Name() == pl->_Inventory().items[i][0]->Name())
+                {
+                    sellPrices[i] = (int)ceil((gI.potions[p].Price()/1.5f) * (1.0f + t*t*0.5f));
+                    break;
+                }
+        }
+
+        sellChoices[0].second = (pl->_Inventory().itemsCount[0] > 0) ? pl->_Inventory().items[0][0]->Name() + " for " + to_string(sellPrices[0]): "Nothing";
+        sellChoices[1].second = (pl->_Inventory().itemsCount[1] > 0) ? pl->_Inventory().items[1][0]->Name() + " for " + to_string(sellPrices[1]) : "Nothing";
+    }
+
+    Banner* banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
+    if (banner) banner->_Text()._Text(dialogues[dialogueIdx].dialogue);
+
+    banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueSpeakerTextIdx]);
+    if (banner) banner->_Text()._Text(name);
+ 
+    for (const auto& choice : dialogues[dialogueIdx].choices)
+    {
+        banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.choice1Idx+choice.first]);
+        if (banner) banner->_Text()._Text(to_string(choice.first+1)+". "+choice.second.second);
+    }
+    
+    int inp = GetKeyPressed();
+     
+    if (inp >= '1' && inp <= '3')
+    {
+        int choiceIdx = inp - '1';
+        auto it = dialogues[dialogueIdx].choices.find(choiceIdx);
+        if (it == dialogues[dialogueIdx].choices.end()) return;
+
+        string choiceText = it->second.second;
+
+        // --- Buy logic (node 1 -> buying an item) ---
+        if (dialogueIdx == 1 && choiceIdx < 2)
+        {
+            for (int p = 0; p < 7; p++)
+            {
+                if (gI.potions[p].Name() != items[choiceIdx]) continue;
+                
+                if (pl->Coins() < buyPrices[choiceIdx]) break;
+
+                try { pl->BuyItem(new Potion(gI.potions[p]), buyPrices[choiceIdx]); }
+                catch(...) {}
+
+                break;
+            } 
+        }
+
+        if (dialogueIdx == 2 && choiceIdx < 2)
+        {  
+            if (pl->_Inventory().itemsCount[choiceIdx] > 0) 
+            
+            for (int p = 0; p < 7; p++)
+            {
+                if (gI.potions[p].Name() != pl->_Inventory().items[choiceIdx][0]->Name()) continue;
+                
+                try { pl->SellItem(pl->_Inventory().items[choiceIdx][0]->Name(),  sellPrices[choiceIdx]);}
+                catch(...) {}
+                break;
+            }
+        }
+
+        dialogueIdx = dialogues[dialogueIdx].choices[choiceIdx].first;
+    }
+}
+
+void Merchant::DrawCharacter()
+{
+    if (anims[IDLE][0].id == 0) return;
+
+    int i = IDLE; // merchant always idle
+
+    Texture2D anim[4] = {anims[i][0], anims[i][1], anims[i][2], anims[i][3]};
+
+    frameTimer += gI.dT;
+    if (frameTimer >= 0.12f)
+    {
+        frameTimer = 0.0f;
+        if (anim[currDir].id > 0 && anim[currDir].width > 0)
+        {
+            int maxFrames = anim[currDir].width / (int)frameWidth[i];
+            currentFrame = (currentFrame + 1) % maxFrames;
+        }
+        else currentFrame = 0;
+    }
+
+    Rectangle sourceRec = {
+        (float)currentFrame * frameWidth[i],
+        0,
+        (float)frameWidth[i],
+        (float)anim[currDir].height
+    };
+
+    if (!gI.scene.player) return;
+
+    AnimationData animData =
+    {
+        gI.scene.player->Camera(),
+        anim[currDir],
+        sourceRec,
+        position,
+        (Vector2){ size, size},
         WHITE
     };
 
@@ -1278,40 +1437,58 @@ void Player::TakeDamage(float amount)
     currHealth -= (amount/armour);
 }
 
-I_Dialogueable* interactNPC = nullptr;
 void Player::Dialogue()
 {
     bool interacted = IsKeyPressed(gI.INTERACT_KEY);
+
     if (interacted)
     {
-        for (int i = 0; i<gI.scene.npcCount; i++)
-        {
-            if (Vector3Distance(gI.scene.npcs[i]->Position(), position)>gI.INTERACT_RANGE) continue;
-            
-            interactNPC = dynamic_cast<I_Dialogueable*>(gI.scene.npcs[i]);
-            break;
-        }
-    }
-
-    if (interactNPC && interacted)
-    {
-        if (gI.scene.dialogueVisible)
+        // If already in dialogue, E always closes — never re-opens same frame
+        if (gI.scene.dialogueVisible || interactNPC)
         {
             gI.scene.dialogueVisible = false;
+            interactNPC = nullptr;
+            return;
         }
-        else
+
+        // Find closest dialogueable NPC in range
+        float closestDist = gI.INTERACT_RANGE;
+        interactNPC = nullptr;
+
+        for (int i = 0; i < gI.scene.npcCount; i++)
+        {
+            float dist = Vector3Distance(gI.scene.npcs[i]->Position(), position);
+            if (dist > gI.INTERACT_RANGE) continue;
+
+            I_Dialogueable* candidate = dynamic_cast<I_Dialogueable*>(gI.scene.npcs[i]);
+            if (!candidate) continue;
+
+            if (dist < closestDist)
+            {
+                closestDist = dist;
+                interactNPC = candidate;
+            }
+        }
+
+        if (interactNPC)
         {
             gI.scene.dialogueVisible = true;
             interactNPC->DialogueSetup();
         }
     }
 
-    if (gI.scene.dialogueVisible)
+    // Every frame: run active dialogue
+    if (gI.scene.dialogueVisible && interactNPC)
+    {
         interactNPC->Dialogue();
+        if (interactNPC->dialogueIdx == -1)
+        {
+            gI.scene.dialogueVisible = false;
+            interactNPC = nullptr;
+        }
+    }
 }
 
-float jT=0, yPos=0;
-bool isSprinting;
 void Player::Update() 
 {
     if (currHealth == 0)
@@ -1375,7 +1552,6 @@ void Player::Update()
             hasJumped = true;
             isGrounded = false;
             yVelocity = 5.0f;
-            yPos = position.y;
         }
         else yVelocity = 0;
     }
@@ -1387,10 +1563,8 @@ void Player::Update()
     
     yVelocity = Clamp(yVelocity, -15, 10);
     position.y +=  yVelocity * gI.dT;
-
 }
 
-bool attackHitDealt = false;
 void Player::Attack()
 {
     if (currHealth < 0 || gI.scene.dialogueVisible) return;
@@ -1415,12 +1589,16 @@ void Player::Attack()
 
             Vector3 diff = { npc->Position().x - position.x, 0, npc->Position().z - position.z };
             if (Magnitude(diff) <= PLAYER_ATTACK_RANGE) npc->TakeDamage((float)(gI.scene.player->CurrDamage()+strength)/1.5f);
+            if (npc->State() == DIE) 
+            {
+                int randomCoins = rand()%10+5;
+                coins+=randomCoins;
+                InvUI_Update();
+            }
         }
     }
 }
 
-bool animEnd = false;
-int lastState = -1;
 void Player::DrawCharacter()
 {
     // Ensure frameWidth is 
