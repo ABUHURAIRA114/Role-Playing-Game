@@ -165,7 +165,7 @@ void CameraMI::SpeedScroll()
 
 // Scene ==================================================================================================================================================================================
 
-void Scene::AddSpawnObject(Box* newObject, Box**& spawnArray, int& spawnCount, int i=0) 
+void Scene::AddSpawnObject(Box* newObject, Box**& spawnArray, int& spawnCount, int k=0) 
 {
     Box** newSpawners = new Box*[spawnCount + 1];
     for (int i = 0; i < spawnCount; i++) {
@@ -190,8 +190,8 @@ void Scene::AddObject(Box* newObject, int i=0)
     newObject->Name(name);
 
     Box** newObjects = new Box*[objectCount + 1];
-    for (int i = 0; i < objectCount; i++) {
-        newObjects[i] = objects[i];
+    for (int j = 0; j < objectCount; j++) {
+        newObjects[j] = objects[j];
     }
     newObjects[objectCount] = newObject;
     delete[] objects;
@@ -211,8 +211,8 @@ void Scene::AddUIObject(RectTransform* newObject, int i=0)
     newObject->Name(name);
 
     RectTransform** newObjects = new RectTransform*[uiCount + 1];
-    for (int i = 0; i < uiCount; i++) {
-        newObjects[i] = ui[i];
+    for (int j = 0; j < uiCount; j++) {
+        newObjects[j] = ui[j];
     }
     newObjects[uiCount] = newObject;
     delete[] ui;
@@ -264,6 +264,31 @@ int Scene::FindUIObjectIndex(string name)
         }
     }
     return -1; // Not found
+}
+
+int Scene::FindNPCIndex(int id)
+{
+    for (int i = 0; i < npcCount; i++) {
+        if (npcs[i]->ID() == id) {
+            return i;
+        }
+    }
+    return -1; // Not found   
+}
+
+int Scene::FindEnemyIndex(int id)
+{
+    for (int i = 0; i < enemyCount; i++) {
+        if (enemies[i]->ID() == id) {
+            return i;
+        }
+    }
+    return -1; // Not found   
+}
+
+bool Scene::IsCharacter(int id)
+{
+    return player->ID() == id || FindEnemyIndex(id) != -1 || FindNPCIndex(id) != -1;
 }
 
 void Scene::SelectionMove()
@@ -384,8 +409,17 @@ void Scene::DrawSceneUI()
     }
 }
 
-void Scene::AddNPC(PossessedNPC* npc)
+void Scene::AddNPC(PossessedNPC* npc, int k = 0)
 {
+    int id = 0;
+    if (k>0) id = npc->ID()+k;
+    if (IsCharacter(id)) 
+    {
+        AddNPC(npc, k+rand()%100);
+        return;
+    } 
+    npc->ID(id);
+
     PossessedNPC** newNPCs = new PossessedNPC*[enemyCount + 1];
     for (int i = 0; i < enemyCount; i++) newNPCs[i] = enemies[i];
     newNPCs[enemyCount] = npc;
@@ -394,8 +428,17 @@ void Scene::AddNPC(PossessedNPC* npc)
     enemyCount++;
 }
 
-void Scene::AddNPC(NPC* npc)
+void Scene::AddNPC(NPC* npc, int k=0)
 {
+    int id = 0;
+    if (k>0) id = npc->ID()+k;
+    if (IsCharacter(id)) 
+    {
+        AddNPC(npc, k+rand()%100); // try with new name
+        return;
+    } 
+    npc->ID(id);
+
     NPC** newNPCs = new NPC*[npcCount + 1];
     for (int i = 0; i < npcCount; i++) newNPCs[i] = npcs[i];
     newNPCs[npcCount] = npc;
@@ -882,7 +925,6 @@ void GlobalInfo::LoadNPCs()
 
     for (int n = 0; n < scene.civilSpawnCount; n++)
     {
-        string potion = potions[rand()%7].Name();
         Civilian* m = new Civilian(
             names[rand()%15],
             scene.civilSpawnPositions[n]->Position() + (Vector3){0, 0.65f, 0}, 1.35f
@@ -1035,7 +1077,8 @@ NPC::~NPC() {}
 void Civilian::DialogueSetup()
 {
     target = (gI.scene.player!=nullptr?gI.scene.player->Position():(Vector3){0,0,0});
-    // Character::Update();
+    Character::Update();
+    // currDir = rand()%4;
 
     dialogueIdx = 0;
     dialogues[0].dialogue = gI.CIVIL_GREETINGS[rand()%9]; ;  
@@ -1074,18 +1117,6 @@ void Civilian::DrawCharacter()
 
     Texture2D anim[4] = {anims[i][0], anims[i][1], anims[i][2], anims[i][3]};
 
-    frameTimer += gI.dT;
-    if (frameTimer >= 0.12f)
-    {
-        frameTimer = 0.0f;
-        if (anim[currDir].id > 0 && anim[currDir].width > 0)
-        {
-            int maxFrames = anim[currDir].width / (int)frameWidth[i];
-            currentFrame = (currentFrame + 1) % maxFrames;
-        }
-        else currentFrame = 0;
-    }
-
     Rectangle sourceRec = {
         (float)currentFrame * frameWidth[i],
         0,
@@ -1105,7 +1136,7 @@ void Civilian::DrawCharacter()
         WHITE
     };
 
-    gI.scene.billboards[name] = animData;
+    gI.scene.billboards[id] = animData;
 }
 
 // Merchant ==================================================================================================================================================================================
@@ -1239,7 +1270,7 @@ void Merchant::DrawCharacter()
     if (frameTimer >= 0.12f)
     {
         frameTimer = 0.0f;
-        if (anim[currDir].id > 0 && anim[currDir].width > 0)
+        if (anim[currDir].id > 0 && anim[currDir].width > 0 && (int)frameWidth[i] > 0)
         {
             int maxFrames = anim[currDir].width / (int)frameWidth[i];
             currentFrame = (currentFrame + 1) % maxFrames;
@@ -1266,7 +1297,7 @@ void Merchant::DrawCharacter()
         WHITE
     };
 
-    gI.scene.billboards[name] = animData;
+    gI.scene.billboards[id] = animData;
 }
 
 void Merchant::DrawInteractPrompt()
@@ -1293,21 +1324,18 @@ void Merchant::DrawInteractPrompt()
 
 void PossessedNPC::TakeDamage(float amount)
 {
+    if (currHealth<=0) return;
     if (state == DIE) return;
+    
     currHealth = Clamp(currHealth - amount, 0, maxHealth);
-    if (currHealth <= 0)
-    {
-        state = DIE;
-    }
-    else
-    {
-        state = HURT;
-        hurtTimer = 0.4f;
-    }
+    state = HURT;
+    hurtTimer = 0.4f;
 }
 
 void PossessedNPC::Update()
 {
+    if (currHealth<=0) return;
+
     if (state == DIE) return;
 
     // Hurt flash — stay in HURT briefly, no movement
@@ -1373,7 +1401,7 @@ void PossessedNPC::DrawCharacter()
     if (anims[IDLE][0].id == 0) return; // textures not loaded
 
     int i = state;
-    if (i >= 7) i = IDLE; // safety clamp
+    if (i >= 6) i = IDLE; // safety clamp
 
     if (state != npcLastState)
     {
@@ -1388,7 +1416,7 @@ void PossessedNPC::DrawCharacter()
     if (frameTimer >= 0.12f)
     {
         frameTimer = 0.0f;
-        if (anim[currDir].id > 0 && anim[currDir].width > 0)
+        if (anim[currDir].id > 0 && anim[currDir].width > 0 && (int)frameWidth[i] > 0)
         {
             int maxFrames = anim[currDir].width / (int)frameWidth[i];
             if (currentFrame < maxFrames - 1)
@@ -1396,7 +1424,7 @@ void PossessedNPC::DrawCharacter()
             else
             {
                 if (state == HURT)
-                    state = IDLE; // return to idle after attack/hurt anim
+                    state = (currHealth>0)?IDLE:DIE; // return to idle after attack/hurt anim
                 else if (state != DIE)
                     currentFrame = 0;
                 // DIE stays on last frame
@@ -1422,7 +1450,7 @@ void PossessedNPC::DrawCharacter()
         WHITE
     };
 
-    gI.scene.billboards[name] = animData;
+    gI.scene.billboards[id] = animData;
 }
 
 // Player ==================================================================================================================================================================================
@@ -1585,13 +1613,13 @@ void Player::Attack()
         {
             PossessedNPC* npc = gI.scene.enemies[i];
 
-            if (npc->State() == DIE) continue;
+            if (npc->CurrHealth() <= 0) continue;
 
             Vector3 diff = { npc->Position().x - position.x, 0, npc->Position().z - position.z };
             if (Magnitude(diff) <= PLAYER_ATTACK_RANGE) npc->TakeDamage((float)(gI.scene.player->CurrDamage()+strength)/1.5f);
-            if (npc->State() == DIE) 
+            if (npc->CurrHealth() <= 0) 
             {
-                int randomCoins = rand()%10+5;
+                int randomCoins = rand()%11+5;
                 coins+=randomCoins;
                 InvUI_Update();
             }
@@ -1652,7 +1680,7 @@ void Player::DrawCharacter()
         WHITE
     };
 
-    gI.scene.billboards[name] = animData;
+    gI.scene.billboards[id] = animData;
 }
 
 void Player::CalculateIsGrounded()

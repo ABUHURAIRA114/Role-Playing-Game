@@ -78,7 +78,7 @@ struct Scene
 
     bool dialogueVisible;
 
-    map<string, AnimationData> billboards;
+    map<int, AnimationData> billboards;
 
     Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), enemies(nullptr), npcs(nullptr), npcCount(0),
     enemyCount(0), merchantSpawnPositions(nullptr), merchantSpawnCount(0), civilSpawnPositions(nullptr), civilSpawnCount(0), 
@@ -90,12 +90,17 @@ struct Scene
 
     void AddObject(Box*, int);
     void AddUIObject(RectTransform*, int);
-    void AddNPC(PossessedNPC*);
-    void AddNPC(NPC*);
+    void AddNPC(PossessedNPC*, int);
+    void AddNPC(NPC*, int);
     void RemoveObject(int);
     void RemoveUIObject(int);   
     int FindObjectIndex(string);
     int FindUIObjectIndex(string);
+    
+    int FindNPCIndex(int);
+    int FindEnemyIndex(int);
+    bool IsCharacter(int);
+
     void ObjectSpawn();
 
     void SelectionMove();
@@ -418,6 +423,7 @@ class Inventory
 class Character : public TransformMI
 {
     protected: 
+    int id;
 
     Ray directionRay;
     RayCollision rayInfo;
@@ -434,21 +440,23 @@ class Character : public TransformMI
     int state, damage, currDamage;
     
     public:
-    Character(string name = "RJoe", float maxHealth=100, float speed=1, Vector3 position={0,0,0}, Vector3 target={0,0,0}, int damage = 10)
-    : TransformMI(name, position, {0,0,0}, 2), maxHealth(maxHealth), currHealth(maxHealth), speed(speed), target(target), hurtTimer(0),
+    Character(string name = "RJoe", float maxHealth=100, float speed=1, Vector3 position={0,0,0}, Vector3 target={0,0,0}, int damage = 10, int id = 0)
+    : TransformMI(name, position, {0,0,0}, 2), maxHealth(maxHealth), currHealth(maxHealth), speed(speed), target(target), hurtTimer(0), id(id),
     yVelocity(0), state(0), damage(damage), currDamage(damage), speedMultiplier(1.0f) {}
     virtual ~Character() = 0;
 
-    virtual float MaxHealth() { return maxHealth; }
-    virtual float CurrHealth() { return currHealth; }
-    virtual float Speed() { return speed; }
-    virtual Vector3 Target() { return target; }
-    virtual bool IsGrounded() { return isGrounded; }
+    float MaxHealth() { return maxHealth; }
+    float CurrHealth() { return currHealth; }
+    float Speed() { return speed; }
+    Vector3 Target() { return target; }
+    bool IsGrounded() { return isGrounded; }
+    int ID() { return id; }
     
-    virtual void CurrHealth(float value) { currHealth = value; }
-    virtual void Speed(float value) { this->speed = value; }
-    virtual void Target(Vector3 value) { target= value; }
-    
+    void CurrHealth(float value) { currHealth = value; }
+    void Speed(float value) { this->speed = value; }
+    void Target(Vector3 value) { target= value; }
+    void ID(int value) { id = value; }
+
     virtual void TakeDamage(float amount) {}
     virtual void Update();
     virtual void DrawCharacter() {}
@@ -494,12 +502,7 @@ class Player : public Character
         groundRay.direction = {0, -1, 0};
     }
 
-    float MaxHealth() { return maxHealth; }
-    float CurrHealth() { return currHealth; }
     float CurrStamina() { return currStamina; }
-    float Speed() { return speed; }
-    Vector3 Target() { return target; }
-    bool IsGrounded() { return isGrounded; }
     Camera3D Camera() { return camera; }
     Inventory _Inventory() { return inventory; }
     int Coins() { return coins; }
@@ -538,8 +541,6 @@ class Player : public Character
         catch(const out_of_range& e) { throw; }
         catch(const empty_collection& e) { throw; }
     }
-    void Target(Vector3 value) { target= value; }
-    void CurrHealth(int value) { currHealth = value; }
 
     void TakeDamage(float amount);
 
