@@ -194,7 +194,7 @@ void Scene::AddObject(Box* newObject, int i=0)
     string name = ReplaceWhiteSpaces(newObject->Name());
 
     if (i>0) name = newObject->Name()+to_string(i);
-    if (FindObjectIndex(name) != -1 && newObject->Name()!=gI.ENEMY_SPAWNER_NAME  && newObject->Name()!=gI.CIVIL_SPAWNER_NAME  && newObject->Name()!=gI.MERCHANT_SPAWNER_NAME) 
+    if (FindObjectIndex(name) != -1 && newObject->Name()!=gI.ENEMY_SPAWNER_NAME  && newObject->Name()!=gI.CIVIL_SPAWNER_NAME  && newObject->Name()!=gI.MERCHANT_SPAWNER_NAME && newObject->Name()!=gI.BOSS_SPAWNER_NAME) 
     {
         AddObject(newObject, i+1); // try with new name
         return;
@@ -216,7 +216,7 @@ void Scene::AddCollider(Collider* newObject, int i=0)
     string name = ReplaceWhiteSpaces(newObject->Name());
 
     if (i>0) name = newObject->Name()+to_string(i);
-    if (FindObjectIndex(name) != -1 && newObject->Name()!=gI.ENEMY_SPAWNER_NAME  && newObject->Name()!=gI.CIVIL_SPAWNER_NAME  && newObject->Name()!=gI.MERCHANT_SPAWNER_NAME) 
+    if (FindObjectIndex(name) != -1 && newObject->Name()!=gI.ENEMY_SPAWNER_NAME  && newObject->Name()!=gI.CIVIL_SPAWNER_NAME  && newObject->Name()!=gI.MERCHANT_SPAWNER_NAME && newObject->Name()!=gI.BOSS_SPAWNER_NAME) 
     {
         AddCollider(newObject, i+1); // try with new name
         return;
@@ -468,6 +468,10 @@ void Scene::DrawSceneUI()
         string uiName = uiElement->Name();
         bool isDialogueElement = (uiName.find("DIALOGUE") != string::npos ||
                                   uiName.find("CHOICE")   != string::npos);
+
+        bool isEndElement = (uiName.find("END_") != string::npos);
+
+        if (isEndElement && !endScreenVisible) continue;
         if (isDialogueElement && !dialogueVisible) continue;
 
         Button* button = dynamic_cast<Button*>(uiElement);
@@ -534,6 +538,13 @@ void Scene::UpdateNPCs()
     for (int i = 0; i < enemyCount; i++)
     {
         enemies[i]->Update();
+    }
+
+    // Update dialogueable NPCs that also move (Boss)
+    for (int i = 0; i < npcCount; i++)
+    {
+        Boss* boss = dynamic_cast<Boss*>(npcs[i]);
+        if (boss) boss->Update();
     }
 }
 
@@ -672,6 +683,48 @@ void Scene::ObjectSpawn()
     }
 }
 
+void Scene::ShowBossDeathScreen()
+{
+    Banner* title = dynamic_cast<Banner*>(ui[FindUIObjectIndex("END_TITLE")]);
+    Banner* text  = dynamic_cast<Banner*>(ui[FindUIObjectIndex("END_TEXT")]);
+    if (title) title->_Text()._Text("The Tyrant Falls");
+    if (text)  text->_Text()._Text(
+        "The Boss hit the ground and did not rise.\n\n"
+        "For a moment, no one moved. The wind itself seemed to pause, "
+        "\nas if the world needed a second to understand what had just happened.\n\n"
+        "Then, slowly, a door opened. Then another. Then another.\n\n"
+        "The people of Waloon stepped out into the light, blinking, "
+        "uncertain, \nlike men emerging from a cave they had lived in "
+        "so long they had forgotten the sun.\n\n"
+        "The warrior stood in the square, bloodied and breathing hard, "
+        "\nand said nothing. There was nothing left to say.\n\n"
+        "That night they lit fires for the first time in years. "
+        "\nNot to ward off the dark, but because they could.\n\n"
+        "Waloon was free."
+    );
+    endScreenVisible = true;
+}
+
+void Scene::ShowPlayerDeathScreen()
+{
+    Banner* title = dynamic_cast<Banner*>(ui[FindUIObjectIndex("END_TITLE")]);
+    Banner* text  = dynamic_cast<Banner*>(ui[FindUIObjectIndex("END_TEXT")]);
+    if (title) title->_Text()._Text("Darkness Falls");
+    if (text)  text->_Text()._Text(
+        "The warrior fell.\n\n"
+        "Not with a cry, with a silence that spread outward like ripples "
+        "\non still water, until the whole village held its breath.\n\n"
+        "The Boss stood over him for a long moment, saying nothing. "
+        "\nThere was no triumph in his eyes. Only the cold satisfaction "
+        "\nof a man who had never once doubted the outcome.\n\n"
+        "Waloon remained his. The gates stayed shut. "
+        "The people stayed afraid.\n\n"
+        "Somewhere, a child asked his mother if anyone would ever come.\n\n"
+        "She did not answer. For she had no hope to give."
+    );
+    endScreenVisible = true;
+}
+
 Scene::~Scene()
 {
     for (int i = 0; i<objectCount; i++) delete objects[i];
@@ -694,6 +747,9 @@ Scene::~Scene()
 
     for (int i = 0; i < merchantSpawnCount; i++) delete merchantSpawnPositions[i];
     delete[] merchantSpawnPositions;
+
+    for (int i = 0; i < bossSpawnCount; i++) delete bossSpawnPositions[i];
+    delete[] bossSpawnPositions;
 
     delete player;
 }
@@ -848,16 +904,206 @@ void SaveSystem::LoadScene(Scene& scene)
             if      (name == gI.ENEMY_SPAWNER_NAME)    scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.enemySpawnPositions,    gI.scene.enemySpawnCount);
             else if (name == gI.CIVIL_SPAWNER_NAME)    scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.civilSpawnPositions,    gI.scene.civilSpawnCount);
             else if (name == gI.MERCHANT_SPAWNER_NAME) scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.merchantSpawnPositions, gI.scene.merchantSpawnCount);
+            else if (name == gI.BOSS_SPAWNER_NAME)     scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.bossSpawnPositions,     gI.scene.bossSpawnCount);
 
             scene.AddObject(new Box(name, position, rotationOrScale, scale, assetName));
         }
     }
 }
+
+void SaveSystem::SavePlayer(Player& player)
+{
+    // Format (human-readable, one value per line with a label):
+    // NAME <name>
+    // POS <x> <y> <z>
+    // HEALTH <currHealth> <maxHealth>
+    // STAMINA <currStamina> <maxStamina> <regenRate>
+    // HEALTH_REGEN <healthRegenRate>
+    // SPEED <speed>
+    // DAMAGE <damage> <currDamage>
+    // STRENGTH <strength>
+    // CHARISMA <charisma>
+    // ARMOUR <armour>
+    // COINS <coins>
+    // EFFECTS <count>
+    // EFFECT <type> <timeRemaining>  (one per active effect)
+    // INV_SLOT <slotIdx> <itemName> <count>  (one per occupied slot)
+
+    ofstream file(playerSaveFilePath, ios::out);
+    if (!file.is_open())
+    {
+        cout << "SavePlayer: could not open " << playerSaveFilePath << endl;
+        return;
+    }
+
+    // --- Identity & transform ---
+    file << "NAME "        << player.name                                                  << "\n";
+    file << "POS "         << player.position.x  << " " << player.position.y  << " " << player.position.z  << "\n";
+
+    // --- Vitals ---
+    file << "HEALTH "      << player.currHealth   << " " << player.maxHealth               << "\n";
+    file << "STAMINA "     << player.currStamina  << " " << player.maxStamina << " " << player.staminaRegenRate << "\n";
+    file << "HEALTH_REGEN "<< player.healthRegenRate                                       << "\n";
+
+    // --- Combat stats ---
+    file << "SPEED "       << player.speed                                                 << "\n";
+    file << "DAMAGE "      << player.damage       << " " << player.currDamage              << "\n";
+    file << "STRENGTH "    << player.strength                                              << "\n";
+    file << "CHARISMA "    << player.charisma                                              << "\n";
+    file << "ARMOUR "      << player.armour                                                << "\n";
+
+    // --- Economy ---
+    file << "COINS "       << player.coins                                                 << "\n";
+
+    // --- Active effects (e.g. strength boost timer) ---
+    file << "EFFECTS "     << (int)player.effects.size()                                   << "\n";
+    for (const auto& e : player.effects)
+        file << "EFFECT "  << e.first << " " << e.second                                  << "\n";
+
+    // --- Inventory (up to MAX_SLOTS slots) ---
+    for (int s = 0; s < Inventory::MAX_SLOTS; s++)
+    {
+        if (player.inventory.itemsCount[s] <= 0) continue;
+        // Format: INV_SLOT <slotIdx> <count> <itemName with spaces>
+        file << "INV_SLOT " << s << " "
+             << player.inventory.itemsCount[s] << " "
+             << player.inventory.items[s][0]->Name() << "\n";
+    }
+
+    file.close();
+    cout << "Player saved to " << playerSaveFilePath << endl;
+}
+
+void SaveSystem::LoadPlayer(Player& player)
+{
+    ifstream file(playerSaveFilePath, ios::in);
+    if (!file.is_open())
+    {
+        cout << "LoadPlayer: no save found at " << playerSaveFilePath << endl;
+        return;
+    }
+
+    string token;
+    while (file >> token)
+    {
+        if (token == "NAME")
+        {
+            string name;
+            getline(file, name);  // reads " Weak Health Potion"
+            // trim the leading space
+            if (!name.empty() && name[0] == ' ') name = name.substr(1);
+
+            player.name = name;
+        }
+        else if (token == "POS")
+        {
+            file >> player.position.x >> player.position.y >> player.position.z;
+        }
+        else if (token == "HEALTH")
+        {
+            file >> player.currHealth >> player.maxHealth;
+        }
+        else if (token == "STAMINA")
+        {
+            file >> player.currStamina >> player.maxStamina >> player.staminaRegenRate;
+        }
+        else if (token == "HEALTH_REGEN")
+        {
+            file >> player.healthRegenRate;
+        }
+        else if (token == "SPEED")
+        {
+            file >> player.speed;
+        }
+        else if (token == "DAMAGE")
+        {
+            file >> player.damage >> player.currDamage;
+        }
+        else if (token == "STRENGTH")
+        {
+            file >> player.strength;
+        }
+        else if (token == "CHARISMA")
+        {
+            file >> player.charisma;
+        }
+        else if (token == "ARMOUR")
+        {
+            file >> player.armour;
+        }
+        else if (token == "COINS")
+        {
+            file >> player.coins;
+        }
+        else if (token == "EFFECTS")
+        {
+            int count; file >> count;
+            player.effects.clear();
+            for (int i = 0; i < count; i++)
+            {
+                string effectToken; int type; float value;
+                file >> effectToken >> type >> value;   // "EFFECT <type> <value>"
+                player.effects[type] = value;
+            }
+        }
+        else if (token == "INV_SLOT")
+        {
+            int slotIdx, count;
+            string itemName;
+            file >> slotIdx >> count;
+            getline(file, itemName);  // reads " Weak Health Potion"
+            // trim the leading space
+            if (!itemName.empty() && itemName[0] == ' ') itemName = itemName.substr(1);
+
+            for (int i = 0; i < 7; i++)
+            {
+                if (gI.potions[i].Name() == itemName)
+                {
+                    for (int q = 0; q < count; q++)
+                    {
+                        try { player.inventory.AddItem(new Potion(gI.potions[i])); }
+                        catch(...) { break; }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    file.close();
+
+    // Sync the UI bars and inventory display after loading
+    player.InvUI_Update();
+    player.StateUpdate();
+
+    cout << "Player loaded from " << playerSaveFilePath << endl;
+}
+
 // GlobalInfo ==================================================================================================================================================================================
 
 void GlobalInfo::Shade()
 {
     
+}
+
+void GlobalInfo::LoadEndScreenUI()
+{
+    float w = SCREEN_WIDTH, h = SCREEN_HEIGHT;
+    Color cream     = (Color){245, 235, 210, 255};
+    Color darkBrown = (Color){60, 35, 20, 255};
+
+    // --- Shared overlay + panel ---
+    scene.AddUIObject(new Banner("END_OVERLAY", "",
+        (Vector2){0, 0}, (Vector2){w, h}, 0, cream));
+
+    scene.AddUIObject(new Banner("END_TITLE", "",
+        (Vector2){w*0.1f, h*0.08f}, (Vector2){w*0.8f, 60}, 38, darkBrown));
+
+    scene.AddUIObject(new Banner("END_TEXT", "",
+        (Vector2){w*0.1f, h*0.22f}, (Vector2){w*0.8f, h*0.55f}, 22, darkBrown));
+
+    scene.AddUIObject(new Banner("END_HINT", "[Press any key to continue]",
+        (Vector2){w*0.1f, h*0.85f}, (Vector2){w*0.8f, 30}, 18, (Color){100, 70, 45, 255}));
 }
 
 void GlobalInfo::LoadAnim(Character* c, int stateIdx, const string& stateName, const string& name, int frameCount)
@@ -950,6 +1196,8 @@ void GlobalInfo::PlayerInfo()
     {
         cout <<"Unknown Exception\n";
     }
+
+
 }
 
 void GlobalInfo::LoadDialogueBox()
@@ -1020,6 +1268,9 @@ void GlobalInfo::Assets()
 
     models[CIVIL_SPAWNER_NAME] = LoadModelFromMesh(GenMeshCube(1, .1, 1));
     textures[CIVIL_SPAWNER_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, GREEN, WHITE));
+
+    models[BOSS_SPAWNER_NAME] = LoadModelFromMesh(GenMeshCube(1, .1, 1));
+    textures[BOSS_SPAWNER_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, PURPLE, WHITE));
 
     FilePathList files = LoadDirectoryFiles(MODELS_FOLDER_PATH.c_str());
     for (int i = 0; i<(int)files.count; i++)
@@ -1142,6 +1393,28 @@ void GlobalInfo::LoadNPCs()
 
         scene.AddNPC(m);
     }
+
+    // --- Boss ---
+    for (int n = 0; n < scene.bossSpawnCount; n++)
+    {
+        Boss* boss = new Boss(
+            "The Warlord",
+            scene.bossSpawnPositions[n]->Position() + (Vector3){0, 0.75f, 0},
+            250,  // maxHealth — tanky
+            3.0f, // speed
+            20    // damage
+        );
+
+        // Reuse Warrior (player) sprites — same as player but tinted red when hostile
+        LoadAnim(boss, IDLE,      "Idle",     "Warrior", 5);
+        LoadAnim(boss, MOVING,    "Walk",     "Warrior", 8);
+        LoadAnim(boss, JUMPING,   "Jump",     "Warrior", 5);
+        LoadAnim(boss, ATTACKING, "Attack01", "Warrior", 6);
+        LoadAnim(boss, DIE,       "Death",    "Warrior", 5);
+        LoadAnim(boss, HURT,      "Hurt",     "Warrior", 4);
+
+        scene.AddNPC(boss);
+    }
 }
 
 void GlobalInfo::LoadThings()
@@ -1149,6 +1422,7 @@ void GlobalInfo::LoadThings()
     Assets();
     PlayerInfo();
     LoadDialogueBox();
+    LoadEndScreenUI();
 }
 
 void GlobalInfo::UnloadThings()
@@ -1670,6 +1944,8 @@ void Player::TakeDamage(float amount)
     hurtTimer = 0.3f;
 
     currHealth -= (amount/armour);
+
+    if (currHealth<=0) gI.scene.ShowPlayerDeathScreen();
 }
 
 void Player::Dialogue()
@@ -1726,6 +2002,8 @@ void Player::Dialogue()
 
 void Player::Update() 
 {
+    if (gI.scene.dialogueVisible || gI.scene.endScreenVisible) return;
+
     if (currHealth == 0)
     {
         state = DIE;
@@ -1831,6 +2109,24 @@ void Player::Attack()
                 int randomCoins = rand()%11+5;
                 coins+=randomCoins;
                 InvUI_Update();
+            }
+        }
+
+        // Also hit the Boss if he's hostile
+        for (int i = 0; i < gI.scene.npcCount; i++)
+        {
+            Boss* boss = dynamic_cast<Boss*>(gI.scene.npcs[i]);
+            if (!boss || !boss->IsHostile() || boss->CurrHealth() <= 0) continue;
+
+            Vector3 diff = { boss->Position().x - position.x, 0, boss->Position().z - position.z };
+            if (Magnitude(diff) <= PLAYER_ATTACK_RANGE)
+            {
+                boss->TakeDamage((float)(gI.scene.player->CurrDamage() + strength) / 1.5f);
+                if (boss->CurrHealth() <= 0)
+                {
+                    coins += rand() % 51 + 50; // big coin reward for killing the boss
+                    InvUI_Update();
+                }
             }
         }
     }
@@ -2023,36 +2319,250 @@ void Player::UpdateEffects()
     }
 }
 
+// Boss ==================================================================================================================================================================================
 
+void Boss::DialogueSetup()
+{
+    // Face the player
+    if (gI.scene.player)
+    {
+        target = gI.scene.player->Position();
+        Character::Update();
+    }
+    dialogueIdx = 0;
+    outcome = BOSS_NONE;
+}
 
+void Boss::Dialogue()
+{
+    if (dialogueIdx == -1) return;
 
+    // Update UI text
+    Banner* banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
+    if (banner) banner->_Text()._Text(dialogues[dialogueIdx].dialogue);
 
+    banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueSpeakerTextIdx]);
+    if (banner) banner->_Text()._Text(name);
 
+    for (const auto& choice : dialogues[dialogueIdx].choices)
+    {
+        banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.choice1Idx + choice.first]);
+        if (banner) banner->_Text()._Text(to_string(choice.first + 1) + ". " + choice.second.second);
+    }
 
+    int inp = GetKeyPressed();
+    if (inp >= '1' && inp <= '3')
+    {
+        int choiceIdx = inp - '1';
 
+        switch (choiceIdx)
+        {
+            case 0: // Fight
+                outcome   = BOSS_FIGHT;
+                isHostile = true;
+                relation  = ENEMY;
+                break;
 
+            case 1: // Join — buff the player with a permanent +10 damage boost
+                outcome = BOSS_JOIN;
+                {
+                    Banner* title = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.FindUIObjectIndex("END_TITLE")]);
+                    Banner* text  = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.FindUIObjectIndex("END_TEXT")]);
+                    if (title) title->_Text()._Text("An Unlikely Alliance");
+                    if (text)  text->_Text()._Text(
+                        "And so the warrior knelt before the Dread Lord of Waloon, "
+                        "not in defeat, but in dark accord.\n\n"
+                        "Their united force was unmatched. Together they swept through "
+                        "the valleys east of Waloon, crushing every \nbanner that dared "
+                        "rise against them. Villages fell.\nKingdoms bent the knee.\n\n"
+                        "But power is a hungry thing.\n\n"
+                        "In the dead of winter, when the spoils had been divided \nand "
+                        "the fires of conquest had cooled, the Boss turned on his "
+                        "\nally without warning. A blade in the dark. A throne for one.\n\n"
+                        "The warrior was never seen again.\n\n"
+                        "Waloon endured. Colder than before."
+                    );
+                    gI.scene.endScreenVisible = true;
+                }
+                break;
 
+            case 2: // Leave the village — teleport player far away
+                outcome = BOSS_LEAVE;
+                if (gI.scene.player)
+                    gI.scene.player->Position({50.0f, 0.65f, 50.0f});
+                {
+                    Banner* title = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.FindUIObjectIndex("END_TITLE")]);
+                    Banner* text  = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.FindUIObjectIndex("END_TEXT")]);
+                    if (title) title->_Text()._Text("The Road Away");
+                    if (text)  text->_Text()._Text(
+                        "And so he walked.\n\n"
+                        "No words. No final stand. Just the sound of boots on stone "
+                        "\nand the village growing smaller behind him.\n\n"
+                        "The villagers watched from their windows as the one warrior\n"
+                        "who could have saved them disappeared into the grey hills.\n\n"
+                        "The Boss laughed, a long, slow laugh \nthat rolled through "
+                        "the streets like smoke.\n\n"
+                        "That winter was the harshest Waloon had ever known. "
+                        "\nNot because of the cold, but because of what the cold "
+                        "carried with it, the Boss's will, unchallenged and absolute.\n\n"
+                        "They still tell the story. They say a warrior came once.\n\n"
+                        "He left, they say."
+                    );
+                    gI.scene.endScreenVisible = true;
+                }
+                break;
+        }
 
+        dialogueIdx = -1; // close dialogue
+    }
+}
 
+void Boss::TakeDamage(float amount)
+{
+    if (currHealth <= 0) return;
+    if (state == DIE) return;
 
+    currHealth = Clamp(currHealth - amount, 0, maxHealth);
+    state = HURT;
+    hurtTimer = 0.4f;
 
+    if (currHealth<=0) gI.scene.ShowBossDeathScreen();
+}
 
+void Boss::Update()
+{
+    if (currHealth <= 0) return;
+    if (state == DIE) return;
 
+    if (state == HURT)
+    {
+        hurtTimer -= gI.dT;
+        if (hurtTimer <= 0) state = IDLE;
+        return;
+    }
 
+    Player* player = gI.scene.player;
+    if (!player) return;
 
+    // Only chase/attack if hostile
+    if (!isHostile)
+    {
+        state = IDLE;
+        target = position;
+        return;
+    }
 
+    Vector3 toPlayer = {
+        player->Position().x - position.x,
+        0,
+        player->Position().z - position.z
+    };
+    float dist = Magnitude(toPlayer);
 
+    attackTimer -= gI.dT;
+    if (attackTimer < 0) attackTimer = 0;
 
+    if (dist <= ATTACK_RANGE)
+    {
+        target = position;
+        state  = ATTACKING;
+        if (attackTimer <= 0)
+        {
+            attackTimer = ATTACK_COOLDOWN;
+            player->TakeDamage((float)damage);
+        }
+    }
+    else if (dist <= AGGRO_RANGE)
+    {
+        target = {player->Position().x, position.y, player->Position().z};
+        state  = MOVING;
+    }
+    else
+    {
+        float distToSpawn = Magnitude({spawnPos.x - position.x, 0, spawnPos.z - position.z});
+        if (distToSpawn > 0.1f) { target = spawnPos; state = MOVING; }
+        else                    { target = position;  state = IDLE; }
+    }
 
+    Character::Update();
+}
 
+void Boss::DrawCharacter()
+{
+    if (anims[IDLE][0].id == 0) return;
 
+    int i = state;
+    if (i >= 6) i = IDLE;
 
+    if (state != bossLastState)
+    {
+        currentFrame   = 0;
+        frameTimer     = 0.0f;
+        bossLastState  = state;
+    }
 
+    Texture2D anim[4] = {anims[i][0], anims[i][1], anims[i][2], anims[i][3]};
 
+    frameTimer += gI.dT;
+    if (frameTimer >= 0.12f)
+    {
+        frameTimer = 0.0f;
+        if (anim[currDir].id > 0 && anim[currDir].width > 0 && (int)frameWidth[i] > 0)
+        {
+            int maxFrames = anim[currDir].width / (int)frameWidth[i];
+            if (currentFrame < maxFrames - 1)
+                currentFrame++;
+            else
+            {
+                if (state == HURT)
+                    state = (currHealth > 0) ? IDLE : DIE;
+                else if (state != DIE)
+                    currentFrame = 0;
+            }
+        }
+        else currentFrame = 0;
+    }
 
+    Rectangle sourceRec = {
+        (float)currentFrame * frameWidth[i],
+        0,
+        (float)frameWidth[i],
+        (float)anim[currDir].height
+    };
 
+    if (!gI.scene.player) return;
 
+    // Tint red when hostile
+    Color tint = isHostile ? (Color){255, 100, 100, 255} : WHITE;
 
+    AnimationData animData = {
+        gI.scene.player->Camera(),
+        anim[currDir],
+        sourceRec,
+        position,
+        (Vector2){ size, size },
+        tint
+    };
 
+    gI.scene.billboards[id] = animData;
+}
 
+void Boss::DrawInteractPrompt()
+{
+    if (!gI.scene.player || gI.scene.dialogueVisible || isHostile) return;
 
+    Vector3 toPlayer = {
+        gI.scene.player->Position().x - position.x,
+        0,
+        gI.scene.player->Position().z - position.z
+    };
+    float dist = Magnitude(toPlayer);
+    if (dist <= gI.INTERACT_RANGE)
+    {
+        Vector2 screenPos = GetWorldToScreen(
+            {position.x, position.y + 1.5f, position.z},
+            gI.scene.player->Camera()
+        );
+        DrawText("[E] Speak", (int)screenPos.x - 35, (int)screenPos.y - 10, 20, RED);
+    }
+}

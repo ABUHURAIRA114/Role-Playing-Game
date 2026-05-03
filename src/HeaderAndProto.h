@@ -20,6 +20,7 @@ enum PotionEffect { HEALTH_REGEN, STRENGTH_BOOST, STAMINA_REGEN };
 enum NPCRelation { ENEMY, FRIENDLY };
 enum GridType { HORIZONTAL, VERTICAL };
 enum Mode { EDITOR, GAME };
+enum GameMode { MENU, PAUSE, PLAY };
 
 struct DialogueNodes;
 struct AnimationData;
@@ -48,3 +49,4 @@ class Civilian;
 class PossessedNPC;
 class Merchant;
 class MerchantNPC;
+class Boss;

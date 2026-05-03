@@ -67,6 +67,8 @@ struct Scene
     int civilSpawnCount;
     Box** merchantSpawnPositions;
     int merchantSpawnCount;
+    Box** bossSpawnPositions;
+    int bossSpawnCount;
 
     RectTransform **ui;
     int uiCount;
@@ -79,13 +81,13 @@ struct Scene
     NPC **npcs;
     int npcCount;
 
-    bool dialogueVisible;
+    bool dialogueVisible, endScreenVisible;
 
     map<int, AnimationData> billboards;
 
     Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), enemies(nullptr), npcs(nullptr), npcCount(0),
     enemyCount(0), merchantSpawnPositions(nullptr), merchantSpawnCount(0), civilSpawnPositions(nullptr), civilSpawnCount(0), 
-    enemySpawnPositions(nullptr), enemySpawnCount(0), dialogueVisible(false), sceneCamera() {}
+    enemySpawnPositions(nullptr), enemySpawnCount(0), bossSpawnPositions(nullptr), bossSpawnCount(0), dialogueVisible(false), sceneCamera() {}
 
     ~Scene();
 
@@ -110,6 +112,7 @@ struct Scene
     void DuplicateSelected();
     void ObjectSpawn();
 
+    void ShowBossDeathScreen(), ShowPlayerDeathScreen();
     void SelectionMove();
     void SpeedScroll();
     void DrawScene();
@@ -175,6 +178,7 @@ struct GlobalInfo
     const string ENEMY_SPAWNER_NAME = "ENEMY_SPAWNER"; 
     const string CIVIL_SPAWNER_NAME = "CIVIL_SPAWNER"; 
     const string MERCHANT_SPAWNER_NAME = "MERCHANT_SPAWNER"; 
+    const string BOSS_SPAWNER_NAME     = "BOSS_SPAWNER"; 
     
     const string SAVE_FOLDER_PATH = "./saves"; 
     const string DEFAULT_MODEL_NAME = "DEF_MOD";
@@ -221,7 +225,7 @@ struct GlobalInfo
 
     void LoadAnim(Character* npc, int stateIdx, const string& stateName,const string& name, int frameCount);
 
-    void Shade(), LoadThings(), PlayerInfo(), Assets(), LoadDialogueBox(), LoadNPCs(), UnloadThings();
+    void Shade(), LoadThings(), PlayerInfo(), Assets(), LoadDialogueBox(), LoadEndScreenUI(), LoadNPCs(), UnloadThings();
     private:
     GlobalInfo() {} 
 };
@@ -423,11 +427,15 @@ struct UIGrid
 class SaveSystem
 {
     string saveFilePath;
+    string playerSaveFilePath;  // separate file for player data
     public:
-    SaveSystem(string path) : saveFilePath(path) {}
+    SaveSystem(string path) : saveFilePath(path), playerSaveFilePath(path + "_player.txt") {}
 
     void SaveScene(Scene& scene);
     void LoadScene(Scene& scene);
+
+    void SavePlayer(Player& player);
+    void LoadPlayer(Player& player);
 };
 
 class Inventory
@@ -462,6 +470,9 @@ class Inventory
 
     friend class Player;
     friend class Merchant;
+    friend void SaveSystem::SavePlayer(Player& player);
+    friend void SaveSystem::LoadPlayer(Player& player);
+
 };
 
 class Character : public TransformMI
@@ -600,6 +611,8 @@ class Player : public Character
     friend void GlobalInfo::PlayerInfo();
     friend void GlobalInfo::UnloadThings();
     friend void Potion::ApplyEffect(Player&);
+    friend void SaveSystem::SavePlayer(Player& player);
+    friend void SaveSystem::LoadPlayer(Player& player);
 };
 
 class NPC : public Character
@@ -740,31 +753,64 @@ class Merchant : public NPC, public I_Dialogueable
     friend void GlobalInfo::UnloadThings();
 };
 
+// ==================== Boss ====================
+// Dialogueable boss that uses Warrior (player) sprites.
+// Dialogue choices:
+//   1. Fight him   -> turns hostile, acts like PossessedNPC
+//   2. Join him    -> player gains a damage buff and dialogue closes
+//   3. Leave the village -> closes dialogue, teleports player away
 
+enum BossDialogueOutcome { BOSS_NONE = 0, BOSS_FIGHT, BOSS_JOIN, BOSS_LEAVE };
 
+class Boss : public NPC, public I_Dialogueable
+{
+    // --- Dialogue ---
+    DialogueNodes dialogues[1];  // single node with 3 choices
 
+    // --- Combat (mirrors PossessedNPC) ---
+    const float AGGRO_RANGE   = 10.0f;
+    const float ATTACK_RANGE  = 1.4f;
+    const float ATTACK_COOLDOWN = 1.2f;
+    float attackTimer;
+    Vector3 spawnPos;
 
+    // --- Animation ---
+    int  bossLastState;
+    bool bossAnimEnd;
 
+    // --- State ---
+    BossDialogueOutcome outcome;   // result of the dialogue choice
+    bool isHostile;                // true after "fight" chosen
 
+    public:
+    Boss(string name = "The Warlord", Vector3 position = {0, 0, 0},
+         float maxHealth = 250, float speed = 3.0f, int damage = 20)
+        : NPC(name, maxHealth, speed, position, FRIENDLY, damage),
+          attackTimer(0), spawnPos(position),
+          bossLastState(-1), bossAnimEnd(false),
+          outcome(BOSS_NONE), isHostile(false)
+    {
+        // Build the single dialogue node
+        dialogues[0].dialogue =
+            "So... another wanderer stumbles into MY village. "
+            "State your business, or I'll make it short for you.";
+        dialogues[0].choices = {
+            {0, {-1, "Fight you!"}},
+            {1, {-1, "I'll join you."}},
+            {2, {-1, "I'm leaving the village."}}
+        };
+    }
 
+    // ---- I_Dialogueable ----
+    void DialogueSetup();
+    void Dialogue();
 
+    // ---- Character overrides ----
+    void TakeDamage(float amount);
+    void Update();
+    void DrawCharacter();
+    void DrawInteractPrompt();
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    BossDialogueOutcome Outcome() { return outcome; }
+    bool IsHostile() { return isHostile; }
+};

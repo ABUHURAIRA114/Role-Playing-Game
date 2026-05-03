@@ -4,6 +4,7 @@ GlobalInfo gI;
 SaveSystem save(gI.SAVE_FOLDER_PATH+R"(\scene.txt)");
 string text;
 
+
 void Start()
 {
     srand(time(0)); 
@@ -12,6 +13,7 @@ void Start()
     gI.scene.AddUIObject(new Button("Button 1", "Enemy Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 30}, (Vector2){200, 40}, 20, MAROON));
     gI.scene.AddUIObject(new Button("Button 2", "Civil Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 80}, (Vector2){200, 40}, 20, MAROON));
     gI.scene.AddUIObject(new Button("Button 3", "Merchant Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 130}, (Vector2){200, 40}, 20, MAROON));
+    gI.scene.AddUIObject(new Button("Button Boss", "Boss Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 180}, (Vector2){200, 40}, 20, DARKPURPLE));
     gI.scene.AddUIObject(new Button("Button 4", "Collider", (Vector2){gI.SCREEN_WIDTH - 410, 30}, (Vector2){200, 40}, 20, DARKGREEN));
 
     gI.scene.AddUIObject(new Button("Editor", "Editor", (Vector2){gI.SCREEN_WIDTH/2 + 10, 30}, (Vector2){200, 60}, 20, BLUE));
@@ -20,6 +22,7 @@ void Start()
     gI.LoadThings();
     save.LoadScene(gI.scene);
     gI.LoadNPCs();
+    save.LoadPlayer(*gI.scene.player);
 }
 
 void Update()
@@ -55,10 +58,13 @@ void Update()
     button = dynamic_cast<Button*>(gI.scene.ui[2]);
     if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.MERCHANT_SPAWNER_NAME, gI.MERCHANT_SPAWNER_NAME));
 
-    button = dynamic_cast<Button*>(gI.scene.ui[4]);
-    if (button) if (button->IsClicked()) gI.mode = EDITOR;
+    button = dynamic_cast<Button*>(gI.scene.ui[3]);
+    if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.BOSS_SPAWNER_NAME, gI.BOSS_SPAWNER_NAME));
 
     button = dynamic_cast<Button*>(gI.scene.ui[5]);
+    if (button) if (button->IsClicked()) gI.mode = EDITOR;
+
+    button = dynamic_cast<Button*>(gI.scene.ui[6]);
     if (button) if (button->IsClicked()) gI.mode = GAME;
 
     gI.scene.ObjectSpawn();
@@ -142,6 +148,7 @@ int main () {
     }
 
     save.SaveScene(gI.scene);
+    save.SavePlayer(*gI.scene.player);
     gI.UnloadThings();
 
     cout<<"ENDING";
