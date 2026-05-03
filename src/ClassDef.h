@@ -50,9 +50,12 @@ class CameraMI
 struct Scene
 {
     Box **objects;
-    int objectCount;
+    Collider **colliders;
+
+    int objectCount, colliderCount;
+
     CameraMI sceneCamera;
-    Box* selected;
+    TransformMI* selected;
     float selectionSpeed = 2.0f;
     Ray selectionRay;
     RayCollision selectionRayCollision;
@@ -89,12 +92,15 @@ struct Scene
     void AddSpawnObject(Box*, Box**&, int&, int);
 
     void AddObject(Box*, int);
+    void AddCollider(Collider*, int);
     void AddUIObject(RectTransform*, int);
     void AddNPC(PossessedNPC*, int);
     void AddNPC(NPC*, int);
     void RemoveObject(int);
+    void RemoveCollider(int);
     void RemoveUIObject(int);   
     int FindObjectIndex(string);
+    int FindColliderIndex(string);
     int FindUIObjectIndex(string);
 
     int FindNPCIndex(int);
@@ -161,6 +167,7 @@ struct GlobalInfo
     const int INV_1 = KEY_ONE;
     const int INV_2 = KEY_TWO;
     const int INTERACT_KEY = KEY_E;
+    int mode;
     
     const string MODELS_FOLDER_PATH = "./assets/models"; 
     const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
@@ -171,6 +178,7 @@ struct GlobalInfo
     
     const string SAVE_FOLDER_PATH = "./saves"; 
     const string DEFAULT_MODEL_NAME = "DEF_MOD";
+    const string COLLIDER_MODEL_NAME = "COLLIDER";
     static GlobalInfo instance;
     
     map<string, Model> models;
@@ -179,11 +187,12 @@ struct GlobalInfo
     Scene scene;
     float dT;
     
-    /// @brief  size-->9
-    const string CIVIL_GREETINGS[9] = {
+    /// @brief  size-->10
+    const string CIVIL_GREETINGS[10] = {
         "I've got work to do, so make it quick.",           "Hmm? Oh, sorry. I was lost in thought.",               "Things have been strange lately. Best to keep your head down.",
         "I don't sleep well anymore. None of us do.",       "Just keep moving. This place isn't safe after dark.",  "Another day, another struggle.",
-        "What do you want?",                                "You're blocking my light.",                            "Stay safe out there. These roads aren't what they used to be."
+        "What do you want?",                                "You're blocking my light.",                            "Stay safe out there. These roads aren't what they used to be.",
+        "I used to be an adventurer like you, then I took and arrow to the knee"
     };
         
     /// @brief  size-->5
@@ -302,6 +311,40 @@ class Box : public TransformMI
     float Size() { return size; }
     string Name() { return name; }
     string AssetName() { return assetName; }
+};
+
+class Collider : public TransformMI
+{
+    Model model;
+    BoundingBox boundary;
+    Vector3 scale;  // separate per-axis scale
+
+    void UpdateBoundary();
+
+    public:
+    Collider(string name = "Collider", Vector3 position = {0,0,0}, float size = 1)
+    : TransformMI(name, position, {0,0,0}, size), scale({size, size, size})
+    {
+        model = gI.models[gI.COLLIDER_MODEL_NAME];
+        UpdateBoundary();
+    }
+
+    Model _Model() { return model; }
+    BoundingBox Boundary() { return boundary; }
+
+    void Position(Vector3 newPos) { position = newPos; UpdateBoundary(); }
+    void Size(float newSize)      { size = newSize; UpdateBoundary(); }
+    void Name(string name)        { this->name = name; }
+
+    Vector3 Position() { return position; }
+    Vector3 Rotation() { return rotation; }
+    float   Size()     { return size; }
+    string  Name()     { return name; }
+    Vector3 Scale()    { return scale; }
+
+    void ScaleX(float v) { scale.x = fmax(0.05f, v); UpdateBoundary(); }
+    void ScaleY(float v) { scale.y = fmax(0.05f, v); UpdateBoundary(); }
+    void ScaleZ(float v) { scale.z = fmax(0.05f, v); UpdateBoundary(); }
 };
 
 class RectTransform

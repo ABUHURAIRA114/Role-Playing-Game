@@ -25,6 +25,7 @@ struct DialogueNodes;
 struct AnimationData;
 class TransformMI;
 class Box;
+class Collider;
 class Camera_;
 struct Scene;
 class Text;

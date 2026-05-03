@@ -3,7 +3,6 @@
 GlobalInfo gI;
 SaveSystem save(gI.SAVE_FOLDER_PATH+R"(\scene.txt)");
 string text;
-int mode;
 
 void Start()
 {
@@ -13,10 +12,10 @@ void Start()
     gI.scene.AddUIObject(new Button("Button 1", "Enemy Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 30}, (Vector2){200, 40}, 20, MAROON));
     gI.scene.AddUIObject(new Button("Button 2", "Civil Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 80}, (Vector2){200, 40}, 20, MAROON));
     gI.scene.AddUIObject(new Button("Button 3", "Merchant Spawner", (Vector2){gI.SCREEN_WIDTH - 200, 130}, (Vector2){200, 40}, 20, MAROON));
+    gI.scene.AddUIObject(new Button("Button 4", "Collider", (Vector2){gI.SCREEN_WIDTH - 410, 30}, (Vector2){200, 40}, 20, DARKGREEN));
 
     gI.scene.AddUIObject(new Button("Editor", "Editor", (Vector2){gI.SCREEN_WIDTH/2 + 10, 30}, (Vector2){200, 60}, 20, BLUE));
     gI.scene.AddUIObject(new Button("Game", "Game", (Vector2){gI.SCREEN_WIDTH/2 - 210, 30}, (Vector2){200, 60}, 20, MAROON));
-    gI.scene.AddUIObject(new Button("Kill", "Kill", (Vector2){gI.SCREEN_WIDTH/2 - 210, 100}, (Vector2){200, 60}, 20, RED));
 
     gI.LoadThings();
     save.LoadScene(gI.scene);
@@ -56,34 +55,18 @@ void Update()
     button = dynamic_cast<Button*>(gI.scene.ui[2]);
     if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.MERCHANT_SPAWNER_NAME, gI.MERCHANT_SPAWNER_NAME));
 
-    button = dynamic_cast<Button*>(gI.scene.ui[3]);
-    if (button) if (button->IsClicked()) mode = EDITOR;
-
     button = dynamic_cast<Button*>(gI.scene.ui[4]);
-    if (button) if (button->IsClicked()) mode = GAME;
+    if (button) if (button->IsClicked()) gI.mode = EDITOR;
 
     button = dynamic_cast<Button*>(gI.scene.ui[5]);
-    if (button) if (button->IsClicked()) 
-    {
-        if (gI.scene.player->CurrHealth()==100)
-        {
-            button->BackColor(GREEN);
-            button->_Text()._Text("Revive");
-            gI.scene.player->CurrHealth(0);
-        }
-        else
-        {
-            button->BackColor(RED);
-            button->_Text()._Text("Kill");
-            gI.scene.player->CurrHealth(100);
-        }
-    }
+    if (button) if (button->IsClicked()) gI.mode = GAME;
+
     gI.scene.ObjectSpawn();
     
     if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_D))
         gI.scene.DuplicateSelected();
 
-    if (mode == GAME)
+    if (gI.mode == GAME)
     {
         gI.scene.player->Update();
         gI.scene.player->UpdateEffects();
@@ -111,12 +94,19 @@ int main () {
 
         BeginDrawing();
 
-            BeginMode3D((mode==EDITOR?gI.scene.sceneCamera.Camera():gI.scene.player->Camera()));
+            BeginMode3D((gI.mode==EDITOR?gI.scene.sceneCamera.Camera():gI.scene.player->Camera()));
 
                 ClearBackground(SKYBLUE);
-                DrawGrid(10000, 1.0f);
+                // DrawGrid(10000, 1.0f);
                 gI.scene.DrawScene();
-                if (gI.scene.selected) DrawBoundingBox(gI.scene.selected->Boundary(), GREEN);
+                if (gI.scene.selected)
+                {
+                    Box* box = dynamic_cast<Box*>(gI.scene.selected);
+                    Collider* col = dynamic_cast<Collider*>(gI.scene.selected);
+
+                    if (box) DrawBoundingBox(box->Boundary(), GREEN);
+                    else if (col) DrawBoundingBox(col->Boundary(), LIME);
+                }
 
             EndMode3D();
 
@@ -144,8 +134,8 @@ int main () {
             //     gI.scene.npcs[0]->DrawInteractPrompt();
             
             // Dialogue close hint
-            if (mode == GAME && gI.scene.dialogueVisible)
-                DrawText("[E] Close", gI.SCREEN_WIDTH - 160, gI.SCREEN_HEIGHT - 280, 18, DARKBROWN);
+            if (gI.mode == GAME && gI.scene.dialogueVisible)
+                DrawText("[E] Close", 160, gI.SCREEN_HEIGHT - 280, 18, DARKBROWN);
 
         EndDrawing();
 

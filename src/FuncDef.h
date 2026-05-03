@@ -133,6 +133,18 @@ void Box::UpdateBoundary() {
     boundary.max = Vector3Add(boundary.max, position);
 }
 
+// Collider ==================================================================================================================================================================================
+
+void Collider::UpdateBoundary() {
+        boundary = GetMeshBoundingBox(model.meshes[0]);
+        boundary.min = {boundary.min.x * scale.x + position.x,
+                        boundary.min.y * scale.y + position.y,
+                        boundary.min.z * scale.z + position.z};
+        boundary.max = {boundary.max.x * scale.x + position.x,
+                        boundary.max.y * scale.y + position.y,
+                        boundary.max.z * scale.z + position.z};
+}
+
 // CameraMI ==================================================================================================================================================================================
 
 void CameraMI::CameraFreeMove()
@@ -199,6 +211,28 @@ void Scene::AddObject(Box* newObject, int i=0)
     objectCount++;
 }
 
+void Scene::AddCollider(Collider* newObject, int i=0) 
+{
+    string name = ReplaceWhiteSpaces(newObject->Name());
+
+    if (i>0) name = newObject->Name()+to_string(i);
+    if (FindObjectIndex(name) != -1 && newObject->Name()!=gI.ENEMY_SPAWNER_NAME  && newObject->Name()!=gI.CIVIL_SPAWNER_NAME  && newObject->Name()!=gI.MERCHANT_SPAWNER_NAME) 
+    {
+        AddCollider(newObject, i+1); // try with new name
+        return;
+    } 
+    newObject->Name(name);
+
+    Collider** newObjects = new Collider*[colliderCount + 1];
+    for (int j = 0; j < colliderCount; j++) {
+        newObjects[j] = colliders[j];
+    }
+    newObjects[colliderCount] = newObject;
+    delete[] colliders;
+    colliders = newObjects;
+    colliderCount++;
+}
+
 void Scene::AddUIObject(RectTransform* newObject, int i=0)
 {
     string name = ReplaceWhiteSpaces(newObject->Name());
@@ -231,6 +265,28 @@ void Scene::RemoveObject(int index) {
     delete[] objects;
     objects = newObjects;
     objectCount--;
+}
+
+int Scene::FindColliderIndex(string name)
+{
+    for (int i = 0; i < colliderCount; i++)
+        if (colliders[i]->Name() == name) return i;
+    return -1;
+}
+
+void Scene::RemoveCollider(int index)
+{
+    if (index < 0 || index >= colliderCount) return;
+
+    delete colliders[index];
+
+    Collider** newColliders = new Collider*[colliderCount - 1];
+    for (int i = 0, j = 0; i < colliderCount; i++)
+        if (i != index) newColliders[j++] = colliders[i];
+
+    delete[] colliders;
+    colliders = newColliders;
+    colliderCount--;
 }
 
 void Scene::RemoveUIObject(int index) {
@@ -295,30 +351,48 @@ void Scene::SelectionMove()
 {
     if (selected != nullptr)
     {
+        Collider* collider = dynamic_cast<Collider*>(selected);
+        bool isCollider = (collider != nullptr);
+
         Vector2 moveInput = GetDirectionalInputV(gI.FORWARD_KEY, gI.BACKWARD_KEY, gI.LEFT_KEY, gI.RIGHT_KEY);
-        Vector2 rotationInput = GetDirectionalInputV(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT);
-        float sizeInput = GetInputODFrom(KEY_MINUS, KEY_EQUAL);
         float heightInput = GetInputODFrom(KEY_Q, KEY_E);
-        
-        selected->Size(selected->Size() + sizeInput * gI.dT * selectionSpeed);
 
         selected->Position({
             selected->Position().x + moveInput.x * gI.dT * selectionSpeed,
-            selected->Position().y  + heightInput * gI.dT * selectionSpeed,
-            selected->Position().z + moveInput.y * selectionSpeed * gI.dT 
+            selected->Position().y + heightInput * gI.dT * selectionSpeed,
+            selected->Position().z + moveInput.y * selectionSpeed * gI.dT
         });
 
-        selected->Rotation({
-            selected->Rotation().x + rotationInput.y * gI.dT * selectionSpeed, 
-            selected->Rotation().y + rotationInput.x * gI.dT * selectionSpeed, 
-            selected->Rotation().z
-        });
+        if (isCollider)
+        {
+            Vector2 scaleInput = GetDirectionalInputV(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT);
+            float scaleY = GetInputODFrom(KEY_MINUS, KEY_EQUAL);
+
+            collider->ScaleX(collider->Scale().x + scaleInput.y * gI.dT * selectionSpeed);
+            collider->ScaleZ(collider->Scale().z + scaleInput.x * gI.dT * selectionSpeed);
+            collider->ScaleY(collider->Scale().y + scaleY        * gI.dT * selectionSpeed);
+        }
+        else
+        {
+            Vector2 rotationInput = GetDirectionalInputV(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT);
+            float sizeInput = GetInputODFrom(KEY_MINUS, KEY_EQUAL);
+
+            selected->Size(selected->Size() + sizeInput * gI.dT * selectionSpeed);
+            selected->Rotation({
+                selected->Rotation().x + rotationInput.y * gI.dT * selectionSpeed,
+                selected->Rotation().y + rotationInput.x * gI.dT * selectionSpeed,
+                selected->Rotation().z
+            });
+        }
 
         if (IsKeyPressed(KEY_DELETE))
         {
-            RemoveObject(FindObjectIndex(selected->Name()));
+            Collider* col = dynamic_cast<Collider*>(selected);
+            if (col) RemoveCollider(FindColliderIndex(col->Name()));
+            else     RemoveObject(FindObjectIndex(selected->Name()));
             selected = nullptr;
         }
+
     }
 }
 
@@ -337,9 +411,17 @@ void Scene::DrawScene()
     {
         Box* box = objects[i];
         DrawModel(box->_Model(), box->Position(), box->Size(), WHITE);
-        DrawModelWires(box->_Model(), box->Position(), box->Size(), BLACK);
     }
 
+    if (gI.mode == EDITOR)
+    for (int i = 0; i < colliderCount; i++)
+    {
+        Collider* col = colliders[i];
+        BeginBlendMode(BLEND_ALPHA);
+        DrawModelEx(col->_Model(), col->Position(), {0,1,0}, 0, col->Scale(), (Color){0,255,0,150});
+        EndBlendMode();
+    }
+    
     for (int i = 0; i < enemyCount; i++) enemies[i]->DrawCharacter();
     for (int i = 0; i < npcCount; i++) npcs[i]->DrawCharacter();
 
@@ -457,48 +539,100 @@ void Scene::UpdateNPCs()
 
 void Scene::SelectObject(Ray ray)
 {
-    float dist;
+    float dist = FLT_MAX;
     selectionRay = ray;
     selected = nullptr;
+
     for (int i = 0; i < objectCount; i++)
     {
-        Box* box = objects[i];
-        selectionRayCollision = GetRayCollisionBox(ray, box->Boundary());
-        if (i==0) dist = selectionRayCollision.distance;
-        if (selectionRayCollision.hit && selectionRayCollision.distance<=dist) {
-            selected = box;
+        selectionRayCollision = GetRayCollisionBox(ray, objects[i]->Boundary());
+        if (selectionRayCollision.hit && selectionRayCollision.distance <= dist)
+        {
+            dist = selectionRayCollision.distance;
+            selected = objects[i];
         }
-    } 
+    }
+
+    for (int i = 0; i < colliderCount; i++)
+    {
+        selectionRayCollision = GetRayCollisionBox(ray, colliders[i]->Boundary());
+        if (selectionRayCollision.hit && selectionRayCollision.distance <= dist)
+        {
+            dist = selectionRayCollision.distance;
+            selected = colliders[i];
+        }
+    }
 }
 
 void Scene::DuplicateSelected()
 {
     if (!selected) return;
 
-    Box* dupe = new Box(
-        selected->Name(),
-        selected->Position(),
-        selected->Rotation(),
-        selected->Size(),
-        selected->AssetName()
-    );
+    Collider* collider = dynamic_cast<Collider*>(selected);
+    Box* box = dynamic_cast<Box*>(selected);
 
-    AddObject(dupe);
-    selected = objects[objectCount - 1]; // select the newly added duplicate
+    if (collider)
+    {
+        Collider* dupe = new Collider(
+            collider->Name(),
+            collider->Position(),
+            collider->Size()
+        );
+        dupe->ScaleX(collider->Scale().x);
+        dupe->ScaleY(collider->Scale().y);
+        dupe->ScaleZ(collider->Scale().z);
+        AddCollider(dupe);
+        selected = colliders[colliderCount - 1];
+    }
+    else if (box)
+    {
+        Box* dupe = new Box(
+            box->Name(),
+            box->Position(),
+            box->Rotation(),
+            box->Size(),
+            box->AssetName()
+        );
+        AddObject(dupe);
+        selected = objects[objectCount - 1];
+    }
+
 }
 
 void Scene::ObjectSpawn()
 {
     for (int i = 0; i < uiCount; i++)
     {
-        if (ui[i]->Name().find("Spawner") == std::string::npos) continue;
-
         Button* button = dynamic_cast<Button*>(ui[i]);
         if (!button || !button->IsClicked()) continue;
 
-        cout << "Spawning " << button->_Text()._Text() << endl;
+        string text = button->_Text()._Text();
 
-        // Cast ray from camera center
+        // --- Collider button ---
+        if (text == "Collider")
+        {
+            Ray ray = GetScreenToWorldRay(
+                {(float)gI.SCREEN_WIDTH / 2, (float)gI.SCREEN_HEIGHT / 2},
+                sceneCamera.Camera()
+            );
+            Vector3 spawnPos = {
+                ray.position.x + ray.direction.x * 5,
+                ray.position.y + ray.direction.y * 5,
+                ray.position.z + ray.direction.z * 5
+            };
+            spawnPos.y = fmax(spawnPos.y, 0);
+
+            Collider* col = new Collider("Collider", spawnPos, 1);
+            AddCollider(col);
+            selected = colliders[colliderCount - 1];
+            continue;
+        }
+
+        // --- Scene object spawners only ---
+        if (ui[i]->Name().find("Spawner") == std::string::npos) continue;
+
+        cout << "Spawning " << text << endl;
+
         Ray ray = GetScreenToWorldRay(
             {(float)gI.SCREEN_WIDTH / 2, (float)gI.SCREEN_HEIGHT / 2},
             sceneCamera.Camera()
@@ -508,49 +642,33 @@ void Scene::ObjectSpawn()
         float closestDist = FLT_MAX;
         bool hitSomething = false;
 
-        // Check against all scene objects
         for (int j = 0; j < objectCount; j++)
         {
             RayCollision hit = GetRayCollisionBox(ray, objects[j]->Boundary());
             if (hit.hit && hit.distance < closestDist)
             {
                 closestDist = hit.distance;
-                // Place on top of the hit surface
-                spawnPos = {
-                    hit.point.x,
-                    hit.point.y + 0.5f, // offset up so it sits on surface
-                    hit.point.z
-                };
+                spawnPos = { hit.point.x, hit.point.y + 0.5f, hit.point.z };
                 hitSomething = true;
             }
         }
 
-        // No object hit — place on ground plane (y=0)
         if (!hitSomething)
         {
-            // Find where ray intersects y=0 plane
             if (fabs(ray.direction.y) > 0.0001f)
             {
                 float t = -ray.position.y / ray.direction.y;
                 if (t > 0)
-                {
-                    spawnPos = {
-                        ray.position.x + ray.direction.x * t,
-                        0,
-                        ray.position.z + ray.direction.z * t
-                    };
-                }
+                    spawnPos = { ray.position.x + ray.direction.x * t, 0, ray.position.z + ray.direction.z * t };
                 else
-                    spawnPos = {ray.position.x, 0, ray.position.z}; // camera below ground
+                    spawnPos = { ray.position.x, 0, ray.position.z };
             }
             else
-                spawnPos = {ray.position.x + ray.direction.x * 10, 0, ray.position.z + ray.direction.z * 10};
+                spawnPos = { ray.position.x + ray.direction.x * 10, 0, ray.position.z + ray.direction.z * 10 };
         }
 
-        // Never spawn below y=0
         spawnPos.y = fmax(spawnPos.y, 0);
-
-        AddObject(new Box("Gameobject", spawnPos, {0,0,0}, 1, button->_Text()._Text()));
+        AddObject(new Box("Gameobject", spawnPos, {0,0,0}, 1, text));
     }
 }
 
@@ -669,21 +787,27 @@ void Potion::ApplyEffect(Player& player)
 
 // SaveSystem ==================================================================================================================================================================================
 // <NAME> <ASSET_NAME> <POS_X> <POS_Y> <POS_Z> <ROT_X> <ROT_Y> <ROT_Z> <SCALE>
-
 void SaveSystem::SaveScene(Scene& scene)
 {   
     ofstream file(saveFilePath, ios::out | ios::binary);
-
     if (file.is_open())
     {
-        for (int i = 0; i<scene.objectCount; i++)
+        for (int i = 0; i < scene.objectCount; i++)
         {
             Box obj = *scene.objects[i];
-            file<<obj.Name()<<" "<<(obj.AssetName()==""?gI.DEFAULT_MODEL_NAME:obj.AssetName())<<" "
-            <<obj.Position().x<<" "<<obj.Position().y<<" "<<obj.Position().z<<" "
-            <<obj.Rotation().x<<" "<<obj.Rotation().y<<" "<<obj.Rotation().z<<" "
-            <<obj.Size()<<" EL : --> ";
-            if (i<scene.objectCount-1) file<<endl;
+            file << obj.Name() << " " << (obj.AssetName()==""?gI.DEFAULT_MODEL_NAME:obj.AssetName()) << " "
+                 << obj.Position().x << " " << obj.Position().y << " " << obj.Position().z << " "
+                 << obj.Rotation().x << " " << obj.Rotation().y << " " << obj.Rotation().z << " "
+                 << obj.Size() << " EL : --> " << endl;
+        }
+
+        for (int i = 0; i < scene.colliderCount; i++)
+        {
+            Collider* col = scene.colliders[i];
+            file << col->Name() << " COLLIDER "
+                 << col->Position().x << " " << col->Position().y << " " << col->Position().z << " "
+                 << col->Scale().x   << " "  << col->Scale().y   << " " << col->Scale().z    << " "
+                 << col->Size() << " EL : --> " << endl;
         }
     }
 }
@@ -691,32 +815,44 @@ void SaveSystem::SaveScene(Scene& scene)
 void SaveSystem::LoadScene(Scene& scene)
 {   
     ifstream file(saveFilePath, ios::in | ios::binary);
-
     if (file.is_open())
     {
-        while(!file.eof())
+        while (!file.eof())
         {
             string name, assetName;
             Vector3 position;
-            Vector3 rotation;
+            Vector3 rotationOrScale;
             float scale;
-            file>>name;
-            // cout<<name;
-            if (name == "") return;
-            
-            file>>assetName>>position.x>>position.y>>position.z>>rotation.x>>rotation.y>>rotation.z>>scale;
 
-            if (name == gI.ENEMY_SPAWNER_NAME) scene.AddSpawnObject(new Box(name, position, rotation, scale, assetName), gI.scene.enemySpawnPositions, gI.scene.enemySpawnCount);
-            else if (name == gI.CIVIL_SPAWNER_NAME) scene.AddSpawnObject(new Box(name, position, rotation, scale, assetName), gI.scene.civilSpawnPositions, gI.scene.civilSpawnCount);
-            else if (name == gI.MERCHANT_SPAWNER_NAME) scene.AddSpawnObject(new Box(name, position, rotation, scale, assetName), gI.scene.merchantSpawnPositions, gI.scene.merchantSpawnCount);
-            
-            scene.AddObject(new Box(name, position, rotation, scale, assetName));
+            file >> name;
+            if (name == "") return;
+
+            file >> assetName
+                 >> position.x      >> position.y      >> position.z
+                 >> rotationOrScale.x >> rotationOrScale.y >> rotationOrScale.z
+                 >> scale;
+
             string line;
             getline(file, line);
+
+            if (assetName == "COLLIDER")
+            {
+                Collider* col = new Collider(name, position, scale);
+                col->ScaleX(rotationOrScale.x);
+                col->ScaleY(rotationOrScale.y);
+                col->ScaleZ(rotationOrScale.z);
+                scene.AddCollider(col);
+                continue;
+            }
+
+            if      (name == gI.ENEMY_SPAWNER_NAME)    scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.enemySpawnPositions,    gI.scene.enemySpawnCount);
+            else if (name == gI.CIVIL_SPAWNER_NAME)    scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.civilSpawnPositions,    gI.scene.civilSpawnCount);
+            else if (name == gI.MERCHANT_SPAWNER_NAME) scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.merchantSpawnPositions, gI.scene.merchantSpawnCount);
+
+            scene.AddObject(new Box(name, position, rotationOrScale, scale, assetName));
         }
     }
 }
-
 // GlobalInfo ==================================================================================================================================================================================
 
 void GlobalInfo::Shade()
@@ -867,6 +1003,11 @@ void GlobalInfo::LoadDialogueBox()
 void GlobalInfo::Assets()
 {
     UIGrid grid({gI.SCREEN_WIDTH-300, 180}, 32);
+
+    models[COLLIDER_MODEL_NAME] = LoadModelFromMesh(GenMeshCube(1, 1, 1));
+    textures[COLLIDER_MODEL_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, GREEN, WHITE));
+
+    models[COLLIDER_MODEL_NAME].materials[0].maps[MATERIAL_MAP_DIFFUSE].color = (Color){0, 255, 0, 80}; 
     
     models[DEFAULT_MODEL_NAME] = LoadModelFromMesh(GenMeshCube(1, 1, 1));
     textures[DEFAULT_MODEL_NAME] = LoadTextureFromImage(GenImageChecked(10, 10, 10, 10, DARKPURPLE, WHITE));
@@ -1145,10 +1286,9 @@ void Civilian::DialogueSetup()
 {
     target = (gI.scene.player!=nullptr?gI.scene.player->Position():(Vector3){0,0,0});
     Character::Update();
-    // currDir = rand()%4;
 
     dialogueIdx = 0;
-    dialogues[0].dialogue = gI.CIVIL_GREETINGS[rand()%9]; ;  
+    dialogues[0].dialogue = gI.CIVIL_GREETINGS[rand()%10]; ;  
 }
 
 void Civilian::Dialogue()
@@ -1610,19 +1750,19 @@ void Player::Update()
     target = (position + inputDir);
     directionRay.direction = Normalize(target-position);
     
-    // for (int i = 0; i<gI.scene.objectCount; i++) 
-    // {
-    //     rayInfo = GetRayCollisionBox(directionRay, gI.scene.objects[i]->Boundary());
+    for (int i = 0; i<gI.scene.colliderCount; i++) 
+    {
+        rayInfo = GetRayCollisionBox(directionRay, gI.scene.colliders[i]->Boundary());
         
-    //     if (rayInfo.hit)
-    //     {
-    //         if (rayInfo.distance<=0.5f)
-    //         {
-    //             target = position;
-    //         }
+        if (rayInfo.hit)
+        {
+            if (rayInfo.distance<=0.5f)
+            {
+                target = position;
+            }
             
-    //     }
-    // }
+        }
+    }
     
     isSprinting = (IsKeyDown(gI.SPRINT_KEY) && currStamina>0 ? true : false);
 
