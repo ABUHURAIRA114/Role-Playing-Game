@@ -458,39 +458,70 @@ void Scene::DrawScene()
     }
 }
 
-void Scene::DrawSceneUI()
+void Scene::DrawSceneUI(int mode)
 {
-    for (int i = 0; i< uiCount; i++)
+    for (int i = 0; i < uiCount; i++)
     {
         RectTransform* uiElement = ui[i];
-
-        // Skip dialogue/choice UI when dialogue is not active
         string uiName = uiElement->Name();
-        bool isDialogueElement = (uiName.find("DIALOGUE") != string::npos ||
-                                  uiName.find("CHOICE")   != string::npos);
 
-        bool isEndElement = (uiName.find("END_") != string::npos);
-
-        if (isEndElement && !endScreenVisible) continue;
-        if (isDialogueElement && !dialogueVisible) continue;
+        // Editor-only elements
+        if (uiName.find("Spawner") != string::npos)
+        {
+            if (mode != EDITOR) continue;
+        }
+        // Game UI — filter by gameMode prefix
+        else if (uiName.find("MEN_") != string::npos)
+        {
+            if (mode != GAME || gameMode != MENU)  continue;
+        }
+        else if (uiName.find("PAU_") != string::npos)
+        {
+            if (mode != GAME || gameMode != PAUSE) continue;
+        }
+        else if (uiName.find("PLA_") != string::npos)
+        {
+            if (mode != GAME || gameMode != PLAY)  continue;
+        }
+        else if (uiName.find("DIALOGUE_") != string::npos ||
+                 uiName.find("CHOICE_")   != string::npos)
+        {
+            if (mode != GAME || !dialogueVisible)  continue;
+        }
+        else if (uiName.find("END_") != string::npos)
+        {
+            if (mode != GAME || !endScreenVisible) continue;
+        }
+        else if (uiName.find("HEALTH") != string::npos ||
+                 uiName.find("STAMINA") != string::npos ||
+                 uiName.find("PL_")    != string::npos)
+        {
+            if (mode != GAME || gameMode != PLAY)  continue;
+        }
 
         Button* button = dynamic_cast<Button*>(uiElement);
-        Text* text = dynamic_cast<Text*>(uiElement);
+        Text*   text   = dynamic_cast<Text*>(uiElement);
         Banner* banner = dynamic_cast<Banner*>(uiElement);
 
-        if (button != nullptr)
+        if (button)
         {
             DrawRectangleRec(button->Rect(), button->BackColor());
-            DrawText(button->_Text()._Text().c_str(), button->Rect().x + button->_Text().Rect().x, button->Rect().y + button->_Text().Rect().y, button->_Text().Rect().width, WHITE);
+            DrawText(button->_Text()._Text().c_str(),
+                button->Rect().x + button->_Text().Rect().x,
+                button->Rect().y + button->_Text().Rect().y,
+                button->_Text().Rect().width, WHITE);
         }
-        else if (text != nullptr)
+        else if (text)
         {
             DrawText(text->_Text().c_str(), text->Rect().x, text->Rect().y, 20, text->_Color());
         }
-        else if (banner != nullptr)
+        else if (banner)
         {
             DrawRectangleRec(banner->Rect(), banner->BackColor());
-            DrawText(banner->_Text()._Text().c_str(), banner->Rect().x + banner->_Text().Rect().x, banner->Rect().y + banner->_Text().Rect().y, banner->_Text().Rect().width, WHITE);    
+            DrawText(banner->_Text()._Text().c_str(),
+                banner->Rect().x + banner->_Text().Rect().x,
+                banner->Rect().y + banner->_Text().Rect().y,
+                banner->_Text().Rect().width, WHITE);
         }
     }
 }
@@ -1081,6 +1112,110 @@ void SaveSystem::LoadPlayer(Player& player)
 
 // GlobalInfo ==================================================================================================================================================================================
 
+void GlobalInfo::LoadMenuUI()
+{
+    float w = SCREEN_WIDTH, h = SCREEN_HEIGHT;
+    Color darkBrown = (Color){60, 35, 20, 255};
+    Color cream     = (Color){245, 235, 210, 255};
+    Color btnColor  = (Color){80, 48, 28, 255};
+
+    // Full background
+    scene.AddUIObject(new Banner("MEN_BG", "",
+        (Vector2){0, 0}, (Vector2){w, h}, 0, darkBrown));
+
+    // Title panel
+    scene.AddUIObject(new Banner("MEN_TITLE_BG", "",
+        (Vector2){w*0.25f, h*0.15f}, (Vector2){w*0.5f, 80}, 0, cream));
+    scene.AddUIObject(new Banner("MEN_TITLE", "WALOON",
+        (Vector2){w*0.25f + 10, h*0.15f + 10}, (Vector2){w*0.5f - 20, 60}, 42, darkBrown));
+
+    scene.AddUIObject(new Banner("MEN_SUBTITLE", "A land under shadow",
+        (Vector2){w*0.25f, h*0.15f + 90}, (Vector2){w*0.5f, 30}, 18,
+        (Color){180, 150, 110, 255}));
+
+    float btnW = 260, btnH = 52;
+    float btnX = (w - btnW) / 2.0f;
+    float startY = h * 0.42f;
+    float gap = 70;
+
+    scene.AddUIObject(new Button("MEN_BTN_PLAY", "Begin",
+        (Vector2){btnX, startY}, (Vector2){btnW, btnH}, 24, btnColor));
+
+    scene.AddUIObject(new Button("MEN_BTN_EDITOR", "Editor",
+        (Vector2){btnX, startY + gap}, (Vector2){btnW, btnH}, 24, btnColor));
+
+    scene.AddUIObject(new Button("MEN_BTN_QUIT", "Quit",
+        (Vector2){btnX, startY + gap*2}, (Vector2){btnW, btnH}, 24,
+        (Color){100, 30, 20, 255}));
+
+    // Version tag
+    scene.AddUIObject(new Banner("MEN_VERSION", "v0.1",
+        (Vector2){w - 70, h - 30}, (Vector2){60, 22}, 14,
+        (Color){100, 70, 45, 255}));
+}
+
+void GlobalInfo::LoadPauseUI()
+{
+    float w = SCREEN_WIDTH, h = SCREEN_HEIGHT;
+
+    Color darkBrown = (Color){60, 35, 20, 255};
+    Color cream     = (Color){245, 235, 210, 255};
+    Color btnColor  = (Color){80, 48, 28, 255};
+
+    // Dim overlay
+    scene.AddUIObject(new Banner("PAU_OVERLAY", "",
+        (Vector2){0, 0}, (Vector2){w, h}, 0, (Color){20, 12, 8, 180}));
+
+    // Panel border
+    float panelW = 320, panelH = 380;
+    float panelX = (w - panelW) / 2.0f;
+    float panelY = (h - panelH) / 2.0f;
+
+    scene.AddUIObject(new Banner("PAU_BORDER", "",
+        (Vector2){panelX - 4, panelY - 4},
+        (Vector2){panelW + 8, panelH + 8},
+        0, darkBrown));
+
+    // Main panel
+    scene.AddUIObject(new Banner("PAU_PANEL", "",
+        (Vector2){panelX, panelY},
+        (Vector2){panelW, panelH},
+        0, cream));
+
+    // Title
+    scene.AddUIObject(new Banner("PAU_TITLE", "PAUSED",
+        (Vector2){panelX + 10, panelY + 25},
+        (Vector2){panelW - 20, 50},
+        28, darkBrown));
+
+    // Divider
+    scene.AddUIObject(new Banner("PAU_DIVIDER", "",
+        (Vector2){panelX + 20, panelY + 88},
+        (Vector2){panelW - 40, 3},
+        0, darkBrown));
+
+    float btnW = panelW - 60;
+    float btnH = 50;
+    float btnX = panelX + 30;
+    float gap  = 65;
+    float startY = panelY + 110;
+
+    scene.AddUIObject(new Button("PAU_BTN_RESUME", "Resume",
+        (Vector2){btnX, startY},
+        (Vector2){btnW, btnH},
+        22, btnColor));
+
+    scene.AddUIObject(new Button("PAU_BTN_MENU", "Main Menu",
+        (Vector2){btnX, startY + gap},
+        (Vector2){btnW, btnH},
+        22, btnColor));
+
+    scene.AddUIObject(new Button("PAU_BTN_QUIT", "Quit Game",
+        (Vector2){btnX, startY + gap * 2},
+        (Vector2){btnW, btnH},
+        22, (Color){100, 30, 20, 255}));
+}
+
 void GlobalInfo::Shade()
 {
     
@@ -1423,6 +1558,8 @@ void GlobalInfo::LoadThings()
     PlayerInfo();
     LoadDialogueBox();
     LoadEndScreenUI();
+    LoadPauseUI();
+    LoadMenuUI();
 }
 
 void GlobalInfo::UnloadThings()

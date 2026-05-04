@@ -3,7 +3,7 @@
 GlobalInfo gI;
 SaveSystem save(gI.SAVE_FOLDER_PATH+R"(\scene.txt)");
 string text;
-
+bool close;
 
 void Start()
 {
@@ -22,69 +22,108 @@ void Start()
     gI.LoadThings();
     save.LoadScene(gI.scene);
     gI.LoadNPCs();
-    save.LoadPlayer(*gI.scene.player);
+    
 }
 
 void Update()
 {
     gI.dT = GetFrameTime();
-    gI.Shade(); 
-    if (IsMouseButtonPressed(gI.FREE_CAMERA_KEY)) DisableCursor(); 
-    else if (IsMouseButtonReleased(gI.FREE_CAMERA_KEY)) EnableCursor(); 
-
-    text = "Camera Off";
-    if (IsMouseButtonDown(gI.FREE_CAMERA_KEY))
-    {   
-        text = "Camera Mode";
-        
-        gI.scene.sceneCamera.CameraFreeMove();
-        gI.scene.sceneCamera.SpeedScroll();
-    }
-    else 
-    {
-        gI.scene.SpeedScroll();
-        gI.scene.SelectionMove();
-    }
-
-    if (IsMouseButtonDown(gI.SELECTION_KEY))
-        gI.scene.SelectObject(GetScreenToWorldRay(GetMousePosition(), gI.scene.sceneCamera.Camera()));
-    
-    Button* button = dynamic_cast<Button*>(gI.scene.ui[0]);
-    if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.ENEMY_SPAWNER_NAME, gI.ENEMY_SPAWNER_NAME));
-    
-    button = dynamic_cast<Button*>(gI.scene.ui[1]);
-    if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.CIVIL_SPAWNER_NAME, gI.CIVIL_SPAWNER_NAME));
-
-    button = dynamic_cast<Button*>(gI.scene.ui[2]);
-    if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.MERCHANT_SPAWNER_NAME, gI.MERCHANT_SPAWNER_NAME));
-
-    button = dynamic_cast<Button*>(gI.scene.ui[3]);
-    if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.BOSS_SPAWNER_NAME, gI.BOSS_SPAWNER_NAME));
-
-    button = dynamic_cast<Button*>(gI.scene.ui[5]);
-    if (button) if (button->IsClicked()) gI.mode = EDITOR;
-
-    button = dynamic_cast<Button*>(gI.scene.ui[6]);
-    if (button) if (button->IsClicked()) gI.mode = GAME;
-
-    gI.scene.ObjectSpawn();
-    
-    if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_D))
-        gI.scene.DuplicateSelected();
-
     if (gI.mode == GAME)
     {
-        gI.scene.player->Update();
-        gI.scene.player->UpdateEffects();
-        gI.scene.player->StateUpdate();
+        switch (gI.scene.gameMode)
+        {
+            case MENU:
+            {
+                // Handle menu buttons
+                Button* play   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_PLAY")]);
+                Button* editor = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_EDITOR")]);
+                Button* quit   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_QUIT")]);
 
-        // Merchant interaction — only allow attack when dialogue is closed
-        if (!gI.scene.dialogueVisible)
-            gI.scene.player->Attack();
+                if (play   && play->IsClicked())   { gI.scene.gameMode = PLAY; ShowCursor(); save.LoadPlayer(*gI.scene.player); }
+                if (editor && editor->IsClicked())  { gI.mode = EDITOR; ShowCursor(); }
+                if (quit   && quit->IsClicked())    close = true;
+                break;
+            }
 
-        gI.scene.UpdateNPCs();
-        gI.scene.player->Dialogue();
+            case PAUSE:
+            {
+                if (IsKeyPressed(KEY_ESCAPE)) gI.scene.gameMode = PLAY;
 
+                Button* resume = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PAU_BTN_RESUME")]);
+                Button* menu   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PAU_BTN_MENU")]);
+                Button* quit   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PAU_BTN_QUIT")]);
+
+                if (resume && resume->IsClicked()) { gI.scene.gameMode = PLAY; DisableCursor(); }
+                if (menu   && menu->IsClicked())   { gI.scene.gameMode = MENU; ShowCursor(); save.SavePlayer(*gI.scene.player); }
+                if (quit   && quit->IsClicked())   { close = true; save.SavePlayer(*gI.scene.player); }
+                break;
+            }
+
+            case PLAY:
+            {
+                if (IsKeyPressed(KEY_ESCAPE)) { gI.scene.gameMode = PAUSE; ShowCursor(); }
+
+                gI.scene.player->Update();
+                gI.scene.player->UpdateEffects();
+                gI.scene.player->StateUpdate();
+                gI.scene.player->Attack();
+                gI.scene.player->Dialogue();
+                gI.scene.UpdateNPCs();
+
+                if (gI.scene.endScreenVisible && GetKeyPressed())
+                    gI.scene.endScreenVisible = false;
+                break;
+            }
+        }
+    }
+    else if (gI.mode == EDITOR)
+    {
+        // ESC from editor back to menu
+        if (IsKeyPressed(KEY_ESCAPE)) { gI.mode = GAME; gI.scene.gameMode = MENU; ShowCursor(); }
+
+        gI.dT = GetFrameTime();
+        if (IsMouseButtonPressed(gI.FREE_CAMERA_KEY)) DisableCursor(); 
+        else if (IsMouseButtonReleased(gI.FREE_CAMERA_KEY)) EnableCursor(); 
+
+        text = "Camera Off";
+        if (IsMouseButtonDown(gI.FREE_CAMERA_KEY))
+        {   
+            text = "Camera Mode";
+            
+            gI.scene.sceneCamera.CameraFreeMove();
+            gI.scene.sceneCamera.SpeedScroll();
+        }
+        else 
+        {
+            gI.scene.SpeedScroll();
+            gI.scene.SelectionMove();
+        }
+
+        if (IsMouseButtonDown(gI.SELECTION_KEY))
+            gI.scene.SelectObject(GetScreenToWorldRay(GetMousePosition(), gI.scene.sceneCamera.Camera()));
+        
+        Button* button = dynamic_cast<Button*>(gI.scene.ui[0]);
+        if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.ENEMY_SPAWNER_NAME, gI.ENEMY_SPAWNER_NAME));
+        
+        button = dynamic_cast<Button*>(gI.scene.ui[1]);
+        if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.CIVIL_SPAWNER_NAME, gI.CIVIL_SPAWNER_NAME));
+
+        button = dynamic_cast<Button*>(gI.scene.ui[2]);
+        if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.MERCHANT_SPAWNER_NAME, gI.MERCHANT_SPAWNER_NAME));
+
+        button = dynamic_cast<Button*>(gI.scene.ui[3]);
+        if (button) if (button->IsClicked()) gI.scene.AddObject(new Box(gI.BOSS_SPAWNER_NAME, gI.BOSS_SPAWNER_NAME));
+
+        button = dynamic_cast<Button*>(gI.scene.ui[5]);
+        if (button) if (button->IsClicked()) gI.mode = EDITOR;
+
+        button = dynamic_cast<Button*>(gI.scene.ui[6]);
+        if (button) if (button->IsClicked()) gI.mode = GAME;
+
+        gI.scene.ObjectSpawn();
+        
+        if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_D))
+            gI.scene.DuplicateSelected();
     }
 }
 
@@ -94,7 +133,7 @@ int main () {
     SetTargetFPS(60);
     Start();
 
-    while (WindowShouldClose() == false){
+    while (!close){
    
         Update(); 
 
@@ -133,7 +172,7 @@ int main () {
             
             // DrawText(to_string(gI.scene.player->CurrStamina()).c_str(), gI.SCREEN_WIDTH/2, gI.SCREEN_HEIGHT/2, 40, DARKGRAY);
             
-            gI.scene.DrawSceneUI();
+            gI.scene.DrawSceneUI(gI.mode);
 
             // Merchant interact prompt (drawn in 2D after 3D mode)
             // if (mode == GAME && gI.scene.npcs[0])
@@ -148,7 +187,7 @@ int main () {
     }
 
     save.SaveScene(gI.scene);
-    save.SavePlayer(*gI.scene.player);
+    
     gI.UnloadThings();
 
     cout<<"ENDING";

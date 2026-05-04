@@ -2,10 +2,9 @@ Gameobject Floor_Brick 0.0333344 0 -30.017 0 0 0 3.26603 EL : -->
 Gameobject1 Floor_Brick 0 0 -23.5633 0 0 0 3.2233 EL : --> 
 Gameobject2 Floor_Brick 0 0 -17.0927 0 0 0 3.25018 EL : --> 
 Gameobject3 Floor_Brick 0 0 -10.6385 0 0 0 3.28882 EL : --> 
-Gameobject4 Floor_Brick -0.79094 0 -3.4112 0 0 0 4.4334 EL : --> 
+Gameobject4 Floor_Brick -0.823958 0 -3.17572 0 0 0 4.4334 EL : --> 
 Gameobject6 Floor_Brick -6.33525 -0.00175711 -30.1488 0 0 0 3.26603 EL : --> 
 Gameobject61 Floor_Brick -12.452 0 -30.2247 0 0 0 3.3327 EL : --> 
-Gameobject611 Floor_Brick -2.02338 0 -2.65531 0 0 0 3.26603 EL : --> 
 Gameobject6111 Floor_Brick -14.8541 0.00336631 -4.33063 0 0 0 3.26603 EL : --> 
 Gameobject61111 Floor_Brick -21.3404 0 -4.33027 0 0 0 3.26603 EL : --> 
 Gameobject6111111 Floor_Brick -21.3009 -0.0134547 -17.3657 0 0 0 3.26603 EL : --> 
@@ -185,7 +184,7 @@ Gameobject441 Wall_Plaster_Straight 3.20974 -0.409535 -27.2984 0 -1.57264 0 1 EL
 Gameobject4411 Wall_Plaster_Straight 3.21334 -0.409535 -29.2962 0 -1.57264 0 1 EL : --> 
 Gameobject44111 Wall_Plaster_Straight 3.21673 -0.409535 -31.296 0 -1.57264 0 1 EL : --> 
 Gameobject441111 Wall_Plaster_Straight 3.21516 -0.409535 -33.2707 0 -1.57264 0 1 EL : --> 
-Gameobject3811 Roof_2x4_RoundTile 5.88954 2.97723 -3.06215 0 0 0 2.2423 EL : --> 
+Gameobject3811 Roof_2x4_RoundTile 5.88954 2.97723 -2.89548 0 0 0 2.2423 EL : --> 
 Gameobject38111 Roof_2x4_RoundTile 5.81654 3.00366 -11.7594 0 0 0 2.2423 EL : --> 
 Gameobject381111 Roof_2x4_RoundTile 5.82666 3.0474 -20.6088 0 0 0 2.2423 EL : --> 
 Gameobject3811111 Roof_2x4_RoundTile 5.85036 3.02799 -29.3268 0 0 0 2.2423 EL : --> 

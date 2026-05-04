@@ -82,6 +82,7 @@ struct Scene
     int npcCount;
 
     bool dialogueVisible, endScreenVisible;
+    int gameMode = MENU;
 
     map<int, AnimationData> billboards;
 
@@ -116,7 +117,7 @@ struct Scene
     void SelectionMove();
     void SpeedScroll();
     void DrawScene();
-    void DrawSceneUI();
+    void DrawSceneUI(int);
     void SelectObject(Ray);
     void UpdateNPCs();
 };
@@ -225,7 +226,11 @@ struct GlobalInfo
 
     void LoadAnim(Character* npc, int stateIdx, const string& stateName,const string& name, int frameCount);
 
-    void Shade(), LoadThings(), PlayerInfo(), Assets(), LoadDialogueBox(), LoadEndScreenUI(), LoadNPCs(), UnloadThings();
+    void Shade(), LoadThings(), 
+    PlayerInfo(), Assets(), 
+    LoadDialogueBox(), LoadEndScreenUI(), 
+    LoadMenuUI(), LoadPauseUI(),
+    LoadNPCs(), UnloadThings();
     private:
     GlobalInfo() {} 
 };
