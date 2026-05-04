@@ -1141,11 +1141,11 @@ void GlobalInfo::LoadMenuUI()
     scene.AddUIObject(new Button("MEN_BTN_PLAY", "Begin",
         (Vector2){btnX, startY}, (Vector2){btnW, btnH}, 24, btnColor));
 
-    scene.AddUIObject(new Button("MEN_BTN_EDITOR", "Editor",
-        (Vector2){btnX, startY + gap}, (Vector2){btnW, btnH}, 24, btnColor));
+    // scene.AddUIObject(new Button("MEN_BTN_EDITOR", "Editor",
+    //     (Vector2){btnX, startY + gap}, (Vector2){btnW, btnH}, 24, btnColor));
 
     scene.AddUIObject(new Button("MEN_BTN_QUIT", "Quit",
-        (Vector2){btnX, startY + gap*2}, (Vector2){btnW, btnH}, 24,
+        (Vector2){btnX, startY + gap}, (Vector2){btnW, btnH}, 24,
         (Color){100, 30, 20, 255}));
 
     // Version tag

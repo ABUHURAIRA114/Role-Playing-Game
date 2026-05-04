@@ -171,7 +171,7 @@ struct GlobalInfo
     const int INV_1 = KEY_ONE;
     const int INV_2 = KEY_TWO;
     const int INTERACT_KEY = KEY_E;
-    int mode;
+    int mode = GAME;
     
     const string MODELS_FOLDER_PATH = "./assets/models"; 
     const string TEXTURES_FOLDER_PATH = "./assets/textures"; 

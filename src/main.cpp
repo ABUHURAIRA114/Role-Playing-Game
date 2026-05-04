@@ -36,11 +36,11 @@ void Update()
             {
                 // Handle menu buttons
                 Button* play   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_PLAY")]);
-                Button* editor = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_EDITOR")]);
+                // Button* editor = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_EDITOR")]);
                 Button* quit   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_QUIT")]);
 
                 if (play   && play->IsClicked())   { gI.scene.gameMode = PLAY; ShowCursor(); save.LoadPlayer(*gI.scene.player); }
-                if (editor && editor->IsClicked())  { gI.mode = EDITOR; ShowCursor(); }
+                // if (editor && editor->IsClicked())  { gI.mode = EDITOR; ShowCursor(); }
                 if (quit   && quit->IsClicked())    close = true;
                 break;
             }
