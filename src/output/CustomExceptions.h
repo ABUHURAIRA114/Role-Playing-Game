@@ -3,41 +3,41 @@ using namespace std;
 
 class out_of_space : public exception 
 {
-    string msg = "";
+    string addWhat = "";
 
 public:
-    out_of_space(string msg) : msg("Out of space: " + msg) {}
+    out_of_space(string addWhat) : addWhat(addWhat) {}
 
     const char* what() const noexcept 
     {
-        return (msg).c_str();
+        return ("Out of space: " + addWhat).c_str();
     }
 };
 
 class empty_collection : public exception
 {
-    string msg = "";
+    string addWhat = "";
 
 public:
-    empty_collection(string msg) : msg("Empty collection: " + msg) {}
+    empty_collection(string addWhat) : addWhat(addWhat) {}
 
     // Override the what() method to return your custom error message
     const char* what() const noexcept override 
     {
-        return (msg).c_str();
+        return ("Empty collection: " + addWhat).c_str();
     }
 };
 
 class failed_execution : public exception
 {
-    string msg = "";
+    string addWhat = "";
 
 public:
-    failed_execution(string msg) : msg("Execution Failed : " + msg) {}
+    failed_execution(string addWhat) : addWhat(addWhat) {}
 
     // Override the what() method to return your custom error message
     const char* what() const noexcept override 
     {
-        return (msg).c_str();
+        return ("Execution Failed : " + addWhat).c_str();
     }
 };

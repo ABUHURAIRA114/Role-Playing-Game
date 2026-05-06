@@ -21,7 +21,8 @@ void Start()
 
     gI.LoadThings();
     save.LoadScene(gI.scene);
-    gI.scene.gameMode = MENU;
+    gI.LoadNPCs();
+    
 }
 
 void Update()
@@ -37,49 +38,39 @@ void Update()
             {
                 // Handle menu buttons
                 Button* play   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_PLAY")]);
+                // Button* editor = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_EDITOR")]);
                 Button* quit   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_QUIT")]);
 
-                if (play   && play->IsClicked())   { gI.scene.gameMode = PLAY; ShowCursor(); save.LoadPlayer();  gI.LoadNPCs();}
-                else if (quit   && quit->IsClicked())    close = true;
+                if (play   && play->IsClicked())   { gI.scene.gameMode = PLAY; ShowCursor(); save.LoadPlayer(*gI.scene.player); }
+                // if (editor && editor->IsClicked())  { gI.mode = EDITOR; ShowCursor(); }
+                if (quit   && quit->IsClicked())    close = true;
+                break;
             }
-            break;
 
-            case STATS:
-            {
-                if (!gI.scene.player) return;
+            // case STATS:
+            // {
+            //     gI.SetPlayerStats();
 
-                gI.SetPlayerStats();
-            }
-            break;
+            //     break;
+            // }
 
             case PAUSE:
             {
-                if (!gI.scene.player) return;
-
-                if (IsKeyPressed(KEY_ESCAPE)) { gI.scene.gameMode = PLAY; DisableCursor(); }
+                if (IsKeyPressed(KEY_ESCAPE)) gI.scene.gameMode = PLAY;
 
                 Button* resume = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PAU_BTN_RESUME")]);
                 Button* menu   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PAU_BTN_MENU")]);
                 Button* quit   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PAU_BTN_QUIT")]);
 
-                Vector2 mouse = GetMousePosition();
-                cout << "Mouse: (" << mouse.x << ", " << mouse.y << ")\n";
-                cout << "MousePressed: " << IsMouseButtonPressed(gI.SELECTION_KEY) << "\n";
-
-                if (resume) cout << "RESUME rect: x=" << resume->Rect().x << " y=" << resume->Rect().y << " w=" << resume->Rect().width << " h=" << resume->Rect().height << " | hovering=" << resume->IsHovering() << "\n";
-                if (menu)   cout << "MENU   rect: x=" << menu->Rect().x   << " y=" << menu->Rect().y   << " w=" << menu->Rect().width   << " h=" << menu->Rect().height   << " | hovering=" << menu->IsHovering()   << "\n";
-
-                if (resume && resume->IsClicked()) { gI.scene.gameMode = PLAY; DisableCursor(); cout<<"RESUME...\n"; }
-                else if (menu   && menu->IsClicked())   { gI.scene.gameMode = MENU; ShowCursor(); save.SavePlayer(*gI.scene.player); gI.UnloadNPCs(); cout<<"MENU...\n";}
-                else if (quit   && quit->IsClicked())   { close = true; save.SavePlayer(*gI.scene.player); }
+                if (resume && resume->IsClicked()) { gI.scene.gameMode = PLAY; DisableCursor(); }
+                if (menu   && menu->IsClicked())   { gI.scene.gameMode = MENU; ShowCursor(); save.SavePlayer(*gI.scene.player); }
+                if (quit   && quit->IsClicked())   { close = true; save.SavePlayer(*gI.scene.player); }
+                break;
             }
-            break;
 
             case PLAY:
             {
-                if (!gI.scene.player) return;
-
-                if (IsKeyPressed(KEY_ESCAPE) &&  !gI.scene.endScreenVisible) { gI.scene.gameMode = PAUSE; ShowCursor(); }
+                if (IsKeyPressed(KEY_ESCAPE)) { gI.scene.gameMode = PAUSE; ShowCursor(); }
 
                 gI.scene.player->Update();
                 gI.scene.player->UpdateEffects();
@@ -88,21 +79,15 @@ void Update()
                 gI.scene.player->Dialogue();
                 gI.scene.UpdateNPCs();
 
-                if (gI.scene.endScreenVisible)
+                if (gI.scene.endScreenVisible && GetKeyPressed() && gI.scene.endScreenTime>=5)
                 {
-                    gI.scene.endScreenTime+=gI.dT;
-                    if (GetKeyPressed() && gI.scene.endScreenTime>=5)
-                    {
-                        gI.scene.endScreenTime = 0;
-                        gI.UnloadNPCs();
-                        save.SavePlayer(*gI.scene.player); 
-                        gI.scene.endScreenVisible = false;
-                        ShowCursor(); 
-                        gI.scene.gameMode = MENU;
-                    }
+                    save.SavePlayer(*gI.scene.player); 
+                    gI.scene.endScreenVisible = false;
+                    ShowCursor(); 
+                    gI.scene.gameMode = MENU;
                 }
+                break;
             }
-            break;
         }
     }
     else if (gI.mode == EDITOR)
@@ -162,19 +147,17 @@ int main () {
     SetTargetFPS(60);
     Start();
 
-    while (!close){
+    while (!WindowShouldClose()){
    
         Update(); 
 
         BeginDrawing();
 
-            BeginMode3D(((gI.mode==EDITOR || !gI.scene.player)?gI.scene.sceneCamera.Camera():gI.scene.player->Camera()));
+            BeginMode3D((gI.mode==EDITOR?gI.scene.sceneCamera.Camera():gI.scene.player->Camera()));
 
-            
-            ClearBackground(SKYBLUE);
-            // DrawGrid(10000, 1.0f);
-            gI.scene.DrawScene();
-
+                ClearBackground(SKYBLUE);
+                // DrawGrid(10000, 1.0f);
+                gI.scene.DrawScene();
                 if (gI.scene.selected)
                 {
                     Box* box = dynamic_cast<Box*>(gI.scene.selected);

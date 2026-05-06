@@ -89,8 +89,8 @@ struct Scene
 
     Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), enemies(nullptr), npcs(nullptr), npcCount(0),
     enemyCount(0), merchantSpawnPositions(nullptr), merchantSpawnCount(0), civilSpawnPositions(nullptr), civilSpawnCount(0), 
-    enemySpawnPositions(nullptr), enemySpawnCount(0), bossSpawnPositions(nullptr), bossSpawnCount(0), dialogueVisible(false), 
-    sceneCamera(), endScreenTime(0), player(nullptr)
+    enemySpawnPositions(nullptr), enemySpawnCount(0), bossSpawnPositions(nullptr), bossSpawnCount(0), dialogueVisible(false), \
+    sceneCamera(), endScreenTime(0)
     {}
 
     ~Scene();
@@ -123,7 +123,6 @@ struct Scene
     void DrawSceneUI(int);
     void SelectObject(Ray);
     void UpdateNPCs();
-    
 };
 
 class Item
@@ -161,8 +160,6 @@ struct GlobalInfo
     const float WHEEL_SENSITIVITY = 1.0f;
     const float BAR_WIDTH = 300;
     const float INTERACT_RANGE = 1.5f;
-    const float VELOCITY_CONST = 5;
-    const float KNOCKBACK_CONST = 7;
 
     const int FREE_CAMERA_KEY = MOUSE_BUTTON_RIGHT;
     const int SELECTION_KEY = MOUSE_BUTTON_LEFT;
@@ -234,11 +231,11 @@ struct GlobalInfo
     void LoadAnim(Character* npc, int stateIdx, const string& stateName,const string& name, int frameCount);
 
     void Shade(), LoadThings(), 
-    PlayerInfo(), PlayerUI(), Assets(), 
+    PlayerInfo(), Assets(), 
     LoadDialogueBox(), LoadEndScreenUI(), 
     LoadStatsUI(), SetPlayerStats(),
-    LoadMenuUI(), LoadPauseUI(), LoadNPCs(),
-    UnloadNPCs(), UnloadThings();
+    LoadMenuUI(), LoadPauseUI(),
+    LoadNPCs(), UnloadThings();
     private:
     GlobalInfo() {} 
 };
@@ -448,7 +445,7 @@ class SaveSystem
     void LoadScene(Scene& scene);
 
     void SavePlayer(Player& player);
-    void LoadPlayer();
+    void LoadPlayer(Player& player);
 };
 
 class Inventory
@@ -484,7 +481,7 @@ class Inventory
     friend class Player;
     friend class Merchant;
     friend void SaveSystem::SavePlayer(Player& player);
-    friend void SaveSystem::LoadPlayer();
+    friend void SaveSystem::LoadPlayer(Player& player);
 
 };
 
@@ -555,13 +552,9 @@ class Player : public Character
     bool hasJumped;
     bool attackHitDealt, animEnd, isSprinting;
     float jT=0;
-    int i1, i2; // inventory ui indices
-
-    Vector3 knockbackVelocity;
-    float   knockbackVal;
 
     public:
-    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 1, float healthRegenRate = 0.5f, float speed=4, int damage = 10, int strength = 1, int charisma = 1, int armour = 1, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
+    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 1, float healthRegenRate = 0.5f, float speed=4, int damage = 10, int strength = 0, int charisma = 0, int armour = 0, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
     : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), 
     currStamina(maxStamina), staminaRegenRate(staminaRegenRate), healthRegenRate(healthRegenRate), interactNPC(nullptr), attackHitDealt(true),
     charisma(charisma), strength(strength), armour(armour), coins(50), lastState(-1), animEnd(false)
@@ -572,11 +565,6 @@ class Player : public Character
         camera.up = {0, 1, 0};
         camera.projection = CAMERA_PERSPECTIVE;
         groundRay.direction = {0, -1, 0};
-        healthBarIdx  = gI.scene.FindUIObjectIndex("PLA_HEALTH_BAR");
-        staminaBarIdx = gI.scene.FindUIObjectIndex("PLA_STAMINA_BAR");
-        i1            = gI.scene.FindUIObjectIndex("PLA_PL_INV_T");
-        i2            = gI.scene.FindUIObjectIndex("PLA_PL_INV_T_1");
-        coinsIdx      = gI.scene.FindUIObjectIndex("PLA_PL_COINS");
     }
 
     float CurrStamina() { return currStamina; }
@@ -590,9 +578,11 @@ class Player : public Character
     {
         try
         { inventory.AddItem(value); }
+        catch(const failed_execution& e) { throw; }
+        catch(const out_of_space& e) { throw; }
+        catch(const empty_collection& e) { throw; }
+        catch(const out_of_range& e) { throw; }
         catch(...) { throw; }
-        cout<<Name();
-
         InvUI_Update();
     }
     void BuyItem(Item* value, int coins)
@@ -617,20 +607,23 @@ class Player : public Character
         catch(const empty_collection& e) { throw; }
     }
 
-    void TakeDamage(float, Vector3);
+    void TakeDamage(float amount);
 
     void CalculateIsGrounded();
     void Update(), UpdateEffects(), Dialogue();
+    int i1, i2; // inventory ui indices
 
     void InvUI_Update();
     void StateUpdate();
     void DrawCharacter();
     void Attack();
 
-    friend class GlobalInfo;
+    friend void GlobalInfo::PlayerInfo();
+    friend void GlobalInfo::SetPlayerStats();
+    friend void GlobalInfo::UnloadThings();
     friend void Potion::ApplyEffect(Player&);
     friend void SaveSystem::SavePlayer(Player& player);
-    friend void SaveSystem::LoadPlayer();
+    friend void SaveSystem::LoadPlayer(Player& player);
 };
 
 class NPC : public Character
@@ -686,9 +679,6 @@ class PossessedNPC : public NPC
     int  npcLastState;
     bool npcAnimEnd;
 
-    Vector3 knockbackVelocity;
-    float   knockbackVal;
-
     public:
     PossessedNPC(string name = "Possessed", Vector3 position = {0, 0, 0},
                  float maxHealth = 30, float speed = 2, int damage = 8)
@@ -697,7 +687,7 @@ class PossessedNPC : public NPC
           npcLastState(-1), npcAnimEnd(false) {}
 
     // Called externally when player's attack lands on this NPC
-    void TakeDamage(float, Vector3);
+    void TakeDamage(float amount);
 
     void Update();
     void DrawCharacter();
@@ -774,6 +764,15 @@ class Merchant : public NPC, public I_Dialogueable
     friend void GlobalInfo::UnloadThings();
 };
 
+// ==================== Boss ====================
+// Dialogueable boss that uses Warrior (player) sprites.
+// Dialogue choices:
+//   1. Fight him   -> turns hostile, acts like PossessedNPC
+//   2. Join him    -> player gains a damage buff and dialogue closes
+//   3. Leave the village -> closes dialogue, teleports player away
+
+enum BossDialogueOutcome { BOSS_NONE = 0, BOSS_FIGHT, BOSS_JOIN, BOSS_LEAVE };
+
 class Boss : public NPC, public I_Dialogueable
 {
     // --- Dialogue ---
@@ -782,16 +781,13 @@ class Boss : public NPC, public I_Dialogueable
     // --- Combat (mirrors PossessedNPC) ---
     const float AGGRO_RANGE   = 10.0f;
     const float ATTACK_RANGE  = 1.4f;
-    const float ATTACK_COOLDOWN = 1.0f;
+    const float ATTACK_COOLDOWN = 1.2f;
     float attackTimer;
     Vector3 spawnPos;
 
     // --- Animation ---
     int  bossLastState;
     bool bossAnimEnd;
-
-    Vector3 knockbackVelocity;
-    float   knockbackVal;
 
     // --- State ---
     BossDialogueOutcome outcome;   // result of the dialogue choice
@@ -805,7 +801,6 @@ class Boss : public NPC, public I_Dialogueable
           bossLastState(-1), bossAnimEnd(false),
           outcome(BOSS_NONE), isHostile(false)
     {
-        size = 3.0f;
         // Build the single dialogue node
         dialogues[0].dialogue =
             "So... another wanderer stumbles into MY village. "
@@ -822,7 +817,7 @@ class Boss : public NPC, public I_Dialogueable
     void Dialogue();
 
     // ---- Character overrides ----
-    void TakeDamage(float, Vector3);
+    void TakeDamage(float amount);
     void Update();
     void DrawCharacter();
     void DrawInteractPrompt();

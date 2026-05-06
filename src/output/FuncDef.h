@@ -319,7 +319,7 @@ int Scene::FindUIObjectIndex(string name)
             return i;
         }
     }
-    return -1; // Not found
+    return 0; // Not found, return first one to prevent crashes, in case i sutpidly forget that i wrote the wrong name
 }
 
 int Scene::FindNPCIndex(int id)
@@ -344,7 +344,7 @@ int Scene::FindEnemyIndex(int id)
 
 bool Scene::IsCharacter(int id)
 {
-    return FindEnemyIndex(id) != -1 || FindNPCIndex(id) != -1;
+    return player->ID() == id || FindEnemyIndex(id) != -1 || FindNPCIndex(id) != -1;
 }
 
 void Scene::SelectionMove()
@@ -422,12 +422,10 @@ void Scene::DrawScene()
         EndBlendMode();
     }
     
-    if (gI.scene.gameMode != PLAY) return;
-
     for (int i = 0; i < enemyCount; i++) enemies[i]->DrawCharacter();
     for (int i = 0; i < npcCount; i++) npcs[i]->DrawCharacter();
 
-    if (player != nullptr) player->DrawCharacter();
+    player->DrawCharacter();
     
     std::vector<std::pair<double, const AnimationData*>> sortedBillboards;
     sortedBillboards.reserve(billboards.size()); // Pre-allocate memory for speed
@@ -482,7 +480,7 @@ void Scene::DrawSceneUI(int mode)
         }
 
         if (uiName.find("DIALOGUE_") != string::npos ||
-            uiName.find("CHOICE_")   != string::npos)
+                 uiName.find("CHOICE_")   != string::npos)
         {
             if (mode != GAME || !dialogueVisible)  continue;
         }
@@ -497,17 +495,7 @@ void Scene::DrawSceneUI(int mode)
 
         if (button)
         {
-            if (button->IsHovering())
-            {
-                Color base = button->BackColor();
-                Color hoverColor   = (Color){(unsigned char)(base.r * 0.75f), (unsigned char)(base.g * 0.75f), (unsigned char)(base.b * 0.75f), base.a};
-                Color clickedColor = (Color){(unsigned char)(base.r * 0.50f), (unsigned char)(base.g * 0.50f), (unsigned char)(base.b * 0.50f), base.a};
-
-                DrawRectangleRec(button->Rect(), IsMouseButtonDown(gI.SELECTION_KEY) ? clickedColor : hoverColor);
-            }
-            else
-                DrawRectangleRec(button->Rect(), button->BackColor());
-
+            DrawRectangleRec(button->Rect(), button->BackColor());
             DrawText(button->_Text()._Text().c_str(),
                 button->Rect().x + button->_Text().Rect().x,
                 button->Rect().y + button->_Text().Rect().y,
@@ -528,10 +516,10 @@ void Scene::DrawSceneUI(int mode)
     }
 }
 
-void Scene::AddNPC(PossessedNPC* npc, int k = 1)
+void Scene::AddNPC(PossessedNPC* npc, int k = 0)
 {
     int id = 0;
-    id = npc->ID()+k;
+    if (k>0) id = npc->ID()+k;
     if (IsCharacter(id)) 
     {
         AddNPC(npc, k+rand()%100);
@@ -547,10 +535,10 @@ void Scene::AddNPC(PossessedNPC* npc, int k = 1)
     enemyCount++;
 }
 
-void Scene::AddNPC(NPC* npc, int k=1)
+void Scene::AddNPC(NPC* npc, int k=0)
 {
     int id = 0;
-    id = npc->ID()+k;
+    if (k>0) id = npc->ID()+k;
     if (IsCharacter(id)) 
     {
         AddNPC(npc, k+rand()%100); // try with new name
@@ -1014,29 +1002,21 @@ void SaveSystem::SavePlayer(Player& player)
     cout << "Player saved to " << playerSaveFilePath << endl;
 }
 
-void SaveSystem::LoadPlayer()
+void SaveSystem::LoadPlayer(Player& player)
 {
-    gI.PlayerInfo();
-    Player& player = *gI.scene.player;
-
     ifstream file(playerSaveFilePath, ios::in);
     if (!file.is_open())
     {
-        gI.totalStatPoints = 10;
         gI.scene.gameMode = STATS;
         cout << "LoadPlayer: no save found at " << playerSaveFilePath << endl;
         return;
     }
-
-    cout<<"Boss Spawn Count "<<endl;
 
     string token;
     while (file >> token)
     {
         if (token == "END")
         {
-            gI.totalStatPoints = 10;
-
             gI.scene.gameMode = STATS;
             cout << "Game Ended, Starting Over" << playerSaveFilePath << endl;
             return;
@@ -1146,12 +1126,12 @@ void GlobalInfo::LoadMenuUI()
 
     // Full background
     scene.AddUIObject(new Banner("MEN_BG", "",
-        (Vector2){0, 0}, (Vector2){w, h}, 0, cream));
+        (Vector2){0, 0}, (Vector2){w, h}, 0, darkBrown));
 
     // Title panel
     scene.AddUIObject(new Banner("MEN_TITLE_BG", "",
-        (Vector2){w*0.25f, h*0.15f}, (Vector2){w*0.5f, 80}, 0, (Color){180, 150, 110, 255}));
-    scene.AddUIObject(new Banner("MEN_TITLE", "The Kalled City Of Waloon",
+        (Vector2){w*0.25f, h*0.15f}, (Vector2){w*0.5f, 80}, 0, cream));
+    scene.AddUIObject(new Banner("MEN_TITLE", "WALOON",
         (Vector2){w*0.25f + 10, h*0.15f + 10}, (Vector2){w*0.5f - 20, 60}, 42, darkBrown));
 
     scene.AddUIObject(new Banner("MEN_SUBTITLE", "A land under shadow",
@@ -1189,7 +1169,7 @@ void GlobalInfo::LoadPauseUI()
 
     // Dim overlay
     scene.AddUIObject(new Banner("PAU_OVERLAY", "",
-        (Vector2){0, 0}, (Vector2){w, h}, 0, (Color){20, 12, 8, 255}));
+        (Vector2){0, 0}, (Vector2){w, h}, 0, (Color){20, 12, 8, 180}));
 
     // Panel border
     float panelW = 320, panelH = 380;
@@ -1234,7 +1214,7 @@ void GlobalInfo::LoadPauseUI()
         (Vector2){btnX, startY + gap},
         (Vector2){btnW, btnH},
         22, btnColor));
-    
+
     scene.AddUIObject(new Button("PAU_BTN_QUIT", "Quit Game",
         (Vector2){btnX, startY + gap * 2},
         (Vector2){btnW, btnH},
@@ -1253,7 +1233,7 @@ void GlobalInfo::LoadStatsUI()
 
     // 1. Background Overlay (Using the same dark dim as Pause)
     scene.AddUIObject(new Banner("STA_BG", "",
-        (Vector2){0, 0}, (Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()}, 0, (Color){20, 12, 8, 255}));
+        (Vector2){0, 0}, (Vector2){w, h}, 0, (Color){20, 12, 8, 200}));
 
     // 2. Main Character Sheet Panel
     float panelW = 450, panelH = 550;
@@ -1309,7 +1289,7 @@ void GlobalInfo::LoadStatsUI()
     float footerY = panelY + panelH - 80;
     
     // Start Game Button
-    scene.AddUIObject(new Button("STA_BTN_START", "Start The Game",
+    scene.AddUIObject(new Button("STA_BTN_START", "EMBARK",
         (Vector2){panelX + 50, footerY}, (Vector2){panelW - 100, 55}, 26, btnColor));
 }
 
@@ -1355,8 +1335,17 @@ void GlobalInfo::LoadAnim(Character* c, int stateIdx, const string& stateName, c
     else c->frameWidth[stateIdx] = 1;
 }
 
-void GlobalInfo::PlayerUI()
-{    
+void GlobalInfo::PlayerInfo()
+{
+    gI.scene.player = new Player();
+
+    LoadAnim(scene.player, IDLE,     "Idle",    "Warrior",  5);
+    LoadAnim(scene.player, MOVING,   "Walk",    "Warrior",  8);
+    LoadAnim(scene.player, JUMPING,  "Jump",    "Warrior",  5);
+    LoadAnim(scene.player, ATTACKING,"Attack01","Warrior",  6);
+    LoadAnim(scene.player, DIE,      "Death",   "Warrior",  5);
+    LoadAnim(scene.player, HURT,     "Hurt",    "Warrior",  4);
+    
     int barWidth = BAR_WIDTH,
     barHeight = 25,
     margin = 20,
@@ -1368,7 +1357,9 @@ void GlobalInfo::PlayerUI()
     scene.AddUIObject(new Banner("PLA_HEALTH_BG", "", (Vector2){posX, posY}, (Vector2){barWidth, barHeight}, 0, BLACK));
     scene.AddUIObject(new Banner("PLA_STAMINA_BG", "", (Vector2){posX, posY + barHeight + 15}, (Vector2){barWidth, barHeight}, 0, BLACK));
 
+    scene.player->healthBarIdx = scene.uiCount;
     scene.AddUIObject(new Banner("PLA_HEALTH_BAR", "", (Vector2){posX + padding, posY + padding}, (Vector2){barWidth - 2*padding, barHeight - 2*padding}, 0, RED));
+    scene.player->staminaBarIdx = scene.uiCount;
     scene.AddUIObject(new Banner("PLA_STAMINA_BAR", "", (Vector2){posX + padding, posY + barHeight + 15 + padding}, (Vector2){barWidth - 2*padding, barHeight - 2*padding}, 0, GREEN));
     
     int buttonSize = 75;
@@ -1382,30 +1373,17 @@ void GlobalInfo::PlayerUI()
 
     grid.OrderUI(VERTICAL);
 
-    scene.AddUIObject(new Text("PLA_PL_INV_T", "A", (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
-    scene.AddUIObject(new Text("PLA_PL_INV_T_1", "B", (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
+    scene.player->i1 = scene.uiCount;
+    scene.AddUIObject(new Text("PLA_PL_INV_T", to_string(scene.player->i1), (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
+    scene.player->i2 = scene.uiCount;
+    scene.AddUIObject(new Text("PLA_PL_INV_T_1", to_string(scene.player->i2), (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
+    scene.player->coinsIdx = scene.uiCount;
     scene.AddUIObject(new Text("PLA_PL_COINS", "0 Coins", (Vector2){(float)buttonSize/10.0f + margin, scene.ui[scene.uiCount-3]->Rect().y+buttonSize+10}, {60, 50}, YELLOW));
 
 
-}
-
-void GlobalInfo::PlayerInfo()
-{
-    if (gI.scene.player) delete gI.scene.player;
-    gI.scene.player = new Player();
-
-    LoadAnim(scene.player, IDLE,     "Idle",    "Warrior",  5);
-    LoadAnim(scene.player, MOVING,   "Walk",    "Warrior",  8);
-    LoadAnim(scene.player, JUMPING,  "Jump",    "Warrior",  5);
-    LoadAnim(scene.player, ATTACKING,"Attack01","Warrior",  6);
-    LoadAnim(scene.player, DIE,      "Death",   "Warrior",  5);
-    LoadAnim(scene.player, HURT,     "Hurt",    "Warrior",  4);
- 
     try
     {
-        
         scene.player->AddItem(new Potion(potions[POTENT_HEALTH_POTION]));
-        cout<<scene.player->Name();
         scene.player->AddItem(new Potion(potions[POTENT_HEALTH_POTION]));
 
         scene.player->AddItem(new Potion(potions[POTENT_STAMINA_POTION]));
@@ -1572,6 +1550,7 @@ string Type(string name)
 
 void GlobalInfo::LoadNPCs()
 {
+    cout<<"Enemy Spawn Count "<<scene.enemySpawnCount<<endl;
     for (int n = 0; n < scene.enemySpawnCount; n++)
     {
         PossessedNPC* npc = new PossessedNPC(
@@ -1594,11 +1573,12 @@ void GlobalInfo::LoadNPCs()
 
     string names[15] = {
         "Merchant-Man",             "Little Lamb",              "Belathor",
-        "Man Of Many Skills",       "Grub",                     "Phillip",
-        "Alchemove",                "Edmund Fleece",            "Qasim",
+        "Man Of Many Skills",       "Grub",                     "Phillip Overcharge",
+        "Alchemove",                "Edmund Fleece",            "Qasim of Questionable Repute",
         "He Who Can Be Named",      "He Who Doesn't Remain",    "The 8th Name",
-        "Garry",                    "Khaas Khubaib",            "Aam Aadmi"
+        "Barry the Barely-Honest",  "Khaas Khubaib",            "Aam Ali"
     };
+
     
     for (int n = 0; n < scene.merchantSpawnCount; n++)
     {
@@ -1633,8 +1613,8 @@ void GlobalInfo::LoadNPCs()
             "The Warlord",
             scene.bossSpawnPositions[n]->Position() + (Vector3){0, 0.75f, 0},
             250,  // maxHealth — tanky
-            5.0f, // speed
-            25    // damage
+            3.0f, // speed
+            20    // damage
         );
 
         // Reuse Warrior (player) sprites — same as player but tinted red when hostile
@@ -1703,21 +1683,20 @@ void GlobalInfo::SetPlayerStats()
         if (points) points->_Text()._Text(to_string(plPoints[i][0]));
     }
 
-    button = dynamic_cast<Button*>(scene.ui[scene.FindUIObjectIndex("STA_BTN_START")]);
-    if (button && button->IsClicked())
-    {
-        // if (totalStatPoints==0)
-        {
-            cout<<"STARTING...\n";
-            scene.gameMode = PLAY;
-        }
-    } 
+    // button = dynamic_cast<Button*>(scene.ui[scene.FindUIObjectIndex("STA_BTN_START")]);
+    // if (button && button->IsClicked())
+    // {
+    //     if (totalStatPoints==0)
+    //     {
+    //         scene.gameMode == GAME;
+    //     }
+    // } 
 }
 
 void GlobalInfo::LoadThings()
 {
     Assets();
-    PlayerUI();
+    PlayerInfo();
     LoadDialogueBox();
     LoadEndScreenUI();
     LoadPauseUI();
@@ -1740,34 +1719,6 @@ void GlobalInfo::UnloadThings()
     {
         UnloadTexture(sprite.second);
     }
-}
-
-void GlobalInfo::UnloadNPCs()
-{
-    gI.scene.billboards.clear();
-
-    if (scene.npcs)
-    {
-        for (int i = 0; i < scene.npcCount; i++)
-        {
-            delete scene.npcs[i];
-            scene.npcs[i] = nullptr;
-        }
-        delete[] scene.npcs;
-        scene.npcs = nullptr;
-        scene.npcCount = 0;
-    }
-
-    if (!scene.enemies) return;
-
-    for (int i = 0; i < scene.enemyCount; i++)
-    {
-        delete scene.enemies[i];
-        scene.enemies[i] = nullptr;
-    }
-    delete[] scene.enemies;
-    scene.enemies = nullptr;
-    scene.enemyCount = 0;
 }
 
 // Character ==================================================================================================================================================================================
@@ -2131,17 +2082,14 @@ void Merchant::DrawInteractPrompt()
 
 // PossessedNPC ==================================================================================================================================================================================
 
-void PossessedNPC::TakeDamage(float amount, Vector3 attackPos)
+void PossessedNPC::TakeDamage(float amount)
 {
-    if (currHealth <= 0) return;
+    if (currHealth<=0) return;
     if (state == DIE) return;
-
+    
     currHealth = Clamp(currHealth - amount, 0, maxHealth);
     state = HURT;
     hurtTimer = 0.4f;
-
-    knockbackVal    = 1;
-    knockbackVelocity = Normalize(Vector3Subtract(attackPos, position)) * -amount * gI.VELOCITY_CONST/3;
 }
 
 void PossessedNPC::Update()
@@ -2155,13 +2103,6 @@ void PossessedNPC::Update()
     {
         hurtTimer -= gI.dT;
         if (hurtTimer <= 0) state = IDLE;
-
-        position.x += knockbackVelocity.x * gI.dT;
-        position.z += knockbackVelocity.z * gI.dT;
-        knockbackVelocity = knockbackVelocity * knockbackVal;
-        if (knockbackVal > 0) knockbackVal -= gI.dT * gI.KNOCKBACK_CONST;
-        else knockbackVal = 0;
-
         return;
     }
 
@@ -2187,7 +2128,7 @@ void PossessedNPC::Update()
         if (attackTimer <= 0)
         {
             attackTimer = ATTACK_COOLDOWN;
-            player->TakeDamage((float)damage, position);
+            player->TakeDamage((float)damage);
         }
     }
     else if (dist <= AGGRO_RANGE)
@@ -2274,17 +2215,14 @@ void PossessedNPC::DrawCharacter()
 
 // Player ==================================================================================================================================================================================
 
-void Player::TakeDamage(float amount, Vector3 attackPos)
+void Player::TakeDamage(float amount)
 {
     if (currHealth<=0) return;
     
-    state       = HURT;
-    hurtTimer   = 0.3f;
+    state = HURT;
+    hurtTimer = 0.3f;
 
-    currHealth  -= (amount/armour);
-
-    knockbackVal      = 1;
-    knockbackVelocity   = Normalize(Vector3Subtract(attackPos, position))*(-amount/armour)*gI.VELOCITY_CONST;
+    currHealth -= (amount/armour);
 
     if (currHealth<=0) gI.scene.ShowPlayerDeathScreen();
 }
@@ -2353,27 +2291,21 @@ void Player::Update()
         return;
     }
 
-    
-    groundRay.position  = position-(Vector3){0, size/2-0.1f, 0};
-    Vector2 moveInput   = GetDirectionalInputV();
-
     if (state == HURT)
     {
         hurtTimer -= gI.dT;
         if (hurtTimer <= 0) state = IDLE;
-        moveInput = Vector2Zero();
+        return;
     }
 
-    Vector3 inputDir    = {moveInput.x * gI.dT * speed * speedMultiplier + knockbackVelocity.x * gI.dT, 0, moveInput.y * gI.dT * speed * speedMultiplier + knockbackVelocity.x * gI.dT};
+    groundRay.position = position-(Vector3){0, size/2-0.1f, 0};
+    Vector2 moveInput = GetDirectionalInputV();
+    Vector3 inputDir = {moveInput.x * gI.dT * speed * speedMultiplier, 0, moveInput.y * gI.dT * speed * speedMultiplier};
 
-    knockbackVelocity   = knockbackVelocity*knockbackVal;
-    if (knockbackVal>0) knockbackVal -= gI.dT * gI.KNOCKBACK_CONST;
-    else knockbackVal = 0;
-
-    directionRay.position   = position;
-    Vector3 currentTarget   = target;
-    target                  = (position + inputDir);
-    directionRay.direction  = Normalize(target-position);
+    directionRay.position = position;
+    Vector3 currentTarget = target;
+    target = (position + inputDir);
+    directionRay.direction = Normalize(target-position);
     
     for (int i = 0; i<gI.scene.colliderCount; i++) 
     {
@@ -2407,7 +2339,7 @@ void Player::Update()
     
     if (isGrounded && !hasJumped)
     {
-        if (state != ATTACKING && state != HURT) state = (Magnitude(inputDir) > 0) ? state = MOVING: state = IDLE;
+        if (state != ATTACKING) state = (Magnitude(inputDir) > 0) ? state = MOVING: state = IDLE;
         
         if (IsKeyPressed(gI.JUMP_KEY))
         {
@@ -2450,7 +2382,7 @@ void Player::Attack()
             if (npc->CurrHealth() <= 0) continue;
 
             Vector3 diff = { npc->Position().x - position.x, 0, npc->Position().z - position.z };
-            if (Magnitude(diff) <= PLAYER_ATTACK_RANGE) npc->TakeDamage((float)(gI.scene.player->CurrDamage()+strength)/1.5f, position);
+            if (Magnitude(diff) <= PLAYER_ATTACK_RANGE) npc->TakeDamage((float)(gI.scene.player->CurrDamage()+strength)/1.5f);
             if (npc->CurrHealth() <= 0) 
             {
                 int randomCoins = rand()%11+5;
@@ -2468,7 +2400,7 @@ void Player::Attack()
             Vector3 diff = { boss->Position().x - position.x, 0, boss->Position().z - position.z };
             if (Magnitude(diff) <= PLAYER_ATTACK_RANGE)
             {
-                boss->TakeDamage((float)(gI.scene.player->CurrDamage() + strength) / 1.5f, position);
+                boss->TakeDamage((float)(gI.scene.player->CurrDamage() + strength) / 1.5f);
                 if (boss->CurrHealth() <= 0)
                 {
                     coins += rand() % 51 + 50; // big coin reward for killing the boss
@@ -2593,7 +2525,6 @@ void Player::InvUI_Update()
 {
     Text* tx = dynamic_cast<Text*>(gI.scene.ui[i1]);
     if (tx) tx->_Text((inventory.itemsCount[0]==0?"No Item In Slot": ( inventory.items[0][0]->Name()+" x"+to_string(inventory.itemsCount[0]) ) ) );
-        cout<<Name();
     
     tx = dynamic_cast<Text*>(gI.scene.ui[i2]);
     if (tx) tx->_Text((inventory.itemsCount[1]==0?"No Item In Slot": ( inventory.items[1][0]->Name()+" x"+to_string( inventory.itemsCount[1]) ) ) );
@@ -2765,7 +2696,7 @@ void Boss::Dialogue()
     }
 }
 
-void Boss::TakeDamage(float amount, Vector3 attackPos)
+void Boss::TakeDamage(float amount)
 {
     if (currHealth <= 0) return;
     if (state == DIE) return;
@@ -2774,10 +2705,7 @@ void Boss::TakeDamage(float amount, Vector3 attackPos)
     state = HURT;
     hurtTimer = 0.4f;
 
-    knockbackVal    = 1;
-    knockbackVelocity = Normalize(Vector3Subtract(attackPos, position)) * -amount * gI.VELOCITY_CONST/5;
-
-    if (currHealth <= 0) gI.scene.ShowBossDeathScreen();
+    if (currHealth<=0) gI.scene.ShowBossDeathScreen();
 }
 
 void Boss::Update()
@@ -2789,13 +2717,6 @@ void Boss::Update()
     {
         hurtTimer -= gI.dT;
         if (hurtTimer <= 0) state = IDLE;
-
-        position.x += knockbackVelocity.x * gI.dT;
-        position.z += knockbackVelocity.z * gI.dT;
-        knockbackVelocity = knockbackVelocity * knockbackVal;
-        if (knockbackVal > 0) knockbackVal -= gI.dT * gI.KNOCKBACK_CONST;
-        else knockbackVal = 0;
-
         return;
     }
 
@@ -2827,15 +2748,21 @@ void Boss::Update()
         if (attackTimer <= 0)
         {
             attackTimer = ATTACK_COOLDOWN;
-            player->TakeDamage((float)damage, position);
+            player->TakeDamage((float)damage);
         }
     }
-    else
+    else if (dist <= AGGRO_RANGE)
     {
         target = {player->Position().x, position.y, player->Position().z};
         state  = MOVING;
     }
-    
+    else
+    {
+        float distToSpawn = Magnitude({spawnPos.x - position.x, 0, spawnPos.z - position.z});
+        if (distToSpawn > 0.1f) { target = spawnPos; state = MOVING; }
+        else                    { target = position;  state = IDLE; }
+    }
+
     Character::Update();
 }
 
