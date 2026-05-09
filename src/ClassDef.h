@@ -76,7 +76,7 @@ struct Scene
     choice1Idx;
 
     PossessedNPC **enemies;
-    int enemyCount;
+    int enemyCount, enemiesRemaining;
 
     NPC **npcs;
     int npcCount;
@@ -552,8 +552,9 @@ class Player : public Character
     I_Dialogueable* interactNPC;
     
     int lastState;
-    bool hasJumped;
-    bool attackHitDealt, animEnd, isSprinting;
+    bool hasJumped,
+    attackHitDealt,
+    animEnd, isSprinting;
     float jT=0;
     int i1, i2; // inventory ui indices
 
@@ -677,7 +678,7 @@ class PossessedNPC : public NPC
 {
     const float AGGRO_RANGE = 6;   // detect player
     const float ATTACK_RANGE = 1.2f;  // melee range
-    const float ATTACK_COOLDOWN = 1.5f;
+    const float ATTACK_COOLDOWN = 1.2f;
 
     float attackTimer;       // countdown between attacks
     Vector3 spawnPos;        // original idle position
@@ -782,7 +783,7 @@ class Boss : public NPC, public I_Dialogueable
     // --- Combat (mirrors PossessedNPC) ---
     const float AGGRO_RANGE   = 10.0f;
     const float ATTACK_RANGE  = 1.4f;
-    const float ATTACK_COOLDOWN = 1.0f;
+    const float ATTACK_COOLDOWN = 0.7f;
     float attackTimer;
     Vector3 spawnPos;
 
@@ -805,7 +806,7 @@ class Boss : public NPC, public I_Dialogueable
           bossLastState(-1), bossAnimEnd(false),
           outcome(BOSS_NONE), isHostile(false)
     {
-        size = 3.0f;
+        // size = 2.7f;
         // Build the single dialogue node
         dialogues[0].dialogue =
             "So... another wanderer stumbles into MY village. "

@@ -62,16 +62,9 @@ void Update()
                 Button* menu   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PAU_BTN_MENU")]);
                 Button* quit   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PAU_BTN_QUIT")]);
 
-                Vector2 mouse = GetMousePosition();
-                cout << "Mouse: (" << mouse.x << ", " << mouse.y << ")\n";
-                cout << "MousePressed: " << IsMouseButtonPressed(gI.SELECTION_KEY) << "\n";
-
-                if (resume) cout << "RESUME rect: x=" << resume->Rect().x << " y=" << resume->Rect().y << " w=" << resume->Rect().width << " h=" << resume->Rect().height << " | hovering=" << resume->IsHovering() << "\n";
-                if (menu)   cout << "MENU   rect: x=" << menu->Rect().x   << " y=" << menu->Rect().y   << " w=" << menu->Rect().width   << " h=" << menu->Rect().height   << " | hovering=" << menu->IsHovering()   << "\n";
-
-                if (resume && resume->IsClicked()) { gI.scene.gameMode = PLAY; DisableCursor(); cout<<"RESUME...\n"; }
+                if  (resume && resume->IsClicked())     { gI.scene.gameMode = PLAY; DisableCursor(); cout<<"RESUME...\n"; }
                 else if (menu   && menu->IsClicked())   { gI.scene.gameMode = MENU; ShowCursor(); save.SavePlayer(*gI.scene.player); gI.UnloadNPCs(); cout<<"MENU...\n";}
-                else if (quit   && quit->IsClicked())   { close = true; save.SavePlayer(*gI.scene.player); }
+                else if (quit   && quit->IsClicked())   { close = true; save.SavePlayer(*gI.scene.player); gI.scene.dialogueVisible = false; }
             }
             break;
 
@@ -81,12 +74,12 @@ void Update()
 
                 if (IsKeyPressed(KEY_ESCAPE) &&  !gI.scene.endScreenVisible) { gI.scene.gameMode = PAUSE; ShowCursor(); }
 
-                gI.scene.player->Update();
-                gI.scene.player->UpdateEffects();
-                gI.scene.player->StateUpdate();
-                gI.scene.player->Attack();
-                gI.scene.player->Dialogue();
-                gI.scene.UpdateNPCs();
+                gI.scene.player->   Update();
+                gI.scene.player->   UpdateEffects();
+                gI.scene.player->   StateUpdate();
+                gI.scene.player->   Attack();
+                gI.scene.player->   Dialogue();
+                gI.scene.           UpdateNPCs();
 
                 if (gI.scene.endScreenVisible)
                 {
@@ -186,23 +179,26 @@ int main () {
 
             EndMode3D();
 
-            // DrawText("Camera", 10, 20, 20, DARKGREEN);
-            // DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.sceneCamera.Camera().position.x, gI.scene.sceneCamera.Camera().position.y, gI.scene.sceneCamera.Camera().position.z), 10, 50, 20, DARKBROWN);
-            // DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.player->Position().x, gI.scene.player->Position().y,  gI.scene.player->Position().z), 10, 200, 20, DARKBROWN);
-            // DrawText(TextFormat("X: %.2f Y: %.2f", gI.scene.player->Target().x, gI.scene.player->Target().y), 10, 230, 20, DARKBROWN);
-            
-            // DrawText(text.c_str(), 10, 80, 20, DARKGRAY);
-            // DrawText((gI.scene.player->IsGrounded()? "Grounded" : "Not Grounded"), 10, 260, 20, DARKGRAY);
+            if (gI.mode == EDITOR)
+            {
+                DrawText("Camera", 10, 20, 20, DARKGREEN);
+                DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.sceneCamera.Camera().position.x, gI.scene.sceneCamera.Camera().position.y, gI.scene.sceneCamera.Camera().position.z), 10, 50, 20, DARKBROWN);
+                DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.player->Position().x, gI.scene.player->Position().y,  gI.scene.player->Position().z), 10, 200, 20, DARKBROWN);
+                DrawText(TextFormat("X: %.2f Y: %.2f", gI.scene.player->Target().x, gI.scene.player->Target().y), 10, 230, 20, DARKBROWN);
+                
+                DrawText(text.c_str(), 10, 80, 20, DARKGRAY);
+                DrawText((gI.scene.player->IsGrounded()? "Grounded" : "Not Grounded"), 10, 260, 20, DARKGRAY);
 
-            // if (gI.scene.selected != nullptr)
-            // {
-            //     DrawText("Selected", 10, 110, 20, DARKGREEN);
-            //     DrawText(TextFormat("Name: %s", gI.scene.selected->Name().c_str()), 10, 140, 20, DARKGREEN);
-            //     DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.selected->Position().x, gI.scene.selected->Position().y, gI.scene.selected->Position().z), 10, 170, 20, DARKGREEN);
-            // }
-            
-            // DrawText(to_string(gI.scene.player->CurrStamina()).c_str(), gI.SCREEN_WIDTH/2, gI.SCREEN_HEIGHT/2, 40, DARKGRAY);
-            
+                if (gI.scene.selected != nullptr)
+                {
+                    DrawText("Selected", 10, 110, 20, DARKGREEN);
+                    DrawText(TextFormat("Name: %s", gI.scene.selected->Name().c_str()), 10, 140, 20, DARKGREEN);
+                    DrawText(TextFormat("X: %.2f Y: %.2f Z: %.2f", gI.scene.selected->Position().x, gI.scene.selected->Position().y, gI.scene.selected->Position().z), 10, 170, 20, DARKGREEN);
+                }
+                
+                DrawText(to_string(gI.scene.player->CurrStamina()).c_str(), gI.SCREEN_WIDTH/2, gI.SCREEN_HEIGHT/2, 40, DARKGRAY);
+                
+            }
             gI.scene.DrawSceneUI(gI.mode);
 
             // Merchant interact prompt (drawn in 2D after 3D mode)

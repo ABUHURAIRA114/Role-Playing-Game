@@ -410,6 +410,9 @@ void Scene::DrawScene()
     for (int i = 0; i < objectCount; i++)
     {
         Box* box = objects[i];
+
+        if (box->Name().find("SPAWNER") != string::npos && gI.mode != EDITOR) continue;
+
         DrawModel(box->_Model(), box->Position(), box->Size(), WHITE);
     }
 
@@ -468,17 +471,20 @@ void Scene::DrawSceneUI(int mode)
         string uiName = uiElement->Name();
 
         // Editor-only elements
-        if (uiName.find("Spawner") != string::npos)
+        if (mode == EDITOR)
         {
-            if (mode != EDITOR) continue;
+            if (uiName.find("MEN_") != string::npos || 
+                uiName.find("PLA_") != string::npos || 
+                uiName.find("PAU_") != string::npos ||
+                uiName.find("STA_") != string::npos ) continue;
         }
-
+        
         if (mode == GAME)
         {
-            if (uiName.find("MEN_") == string::npos && gameMode == MENU) continue;
-            if (uiName.find("PLA_") == string::npos && gameMode == PLAY) continue;
-            if (uiName.find("PAU_") == string::npos && gameMode == PAUSE) continue;
-            if (uiName.find("STA_") == string::npos && gameMode == STATS) continue;
+            if (uiName.find("MEN_") == string::npos && gameMode == MENU     ||
+                uiName.find("PLA_") == string::npos && gameMode == PLAY     ||
+                uiName.find("PAU_") == string::npos && gameMode == PAUSE    ||
+                uiName.find("STA_") == string::npos && gameMode == STATS)   continue;
         }
 
         if (uiName.find("DIALOGUE_") != string::npos ||
@@ -488,7 +494,7 @@ void Scene::DrawSceneUI(int mode)
         }
         else if (uiName.find("END_") != string::npos)
         {
-            if (mode != GAME || !endScreenVisible) continue;
+            if (mode != GAME || !endScreenVisible || (endScreenVisible && endScreenTime<3)) continue;
         }
 
         Button* button = dynamic_cast<Button*>(uiElement);
@@ -525,6 +531,15 @@ void Scene::DrawSceneUI(int mode)
                 banner->Rect().y + banner->_Text().Rect().y,
                 banner->_Text().Rect().width, WHITE);
         }
+    }
+
+    for(int i =0; i<npcCount; i++)
+    {
+        Merchant* mer = dynamic_cast<Merchant*>(npcs[i]);
+        Boss* boss = dynamic_cast<Boss*>(npcs[i]);
+
+        if (mer) mer->DrawInteractPrompt();
+        if (boss) boss->DrawInteractPrompt();
     }
 }
 
@@ -1028,7 +1043,6 @@ void SaveSystem::LoadPlayer()
         return;
     }
 
-    cout<<"Boss Spawn Count "<<endl;
 
     string token;
     while (file >> token)
@@ -1582,6 +1596,7 @@ void GlobalInfo::LoadNPCs()
             10    // damage
         );
 
+        
         LoadAnim(npc, IDLE,     "Idle", "Possesed",    5);
         LoadAnim(npc, MOVING,   "Walk", "Possesed",    6);
         LoadAnim(npc, JUMPING,  "Jump", "Possesed",    5);
@@ -1590,6 +1605,7 @@ void GlobalInfo::LoadNPCs()
         LoadAnim(npc, HURT,     "Hurt", "Possesed",    4);
 
         scene.AddNPC(npc);
+        scene.enemiesRemaining++;
     }
 
     string names[15] = {
@@ -1606,10 +1622,10 @@ void GlobalInfo::LoadNPCs()
         Merchant* m = new Merchant(
             names[rand()%15],
             scene.merchantSpawnPositions[n]->Position() + (Vector3){0, 0.5f, 0},
-            {potion, UnRepeatedPotion(Type(potion))}, 3.0f
+            {potion, UnRepeatedPotion(Type(potion))}, 1.35f
         );
         
-        LoadAnim(m, IDLE, "Idle", "Man", 12);
+        LoadAnim(m, IDLE, "Idle", "Old", 1);
 
         scene.AddNPC(m);
     }
@@ -1632,9 +1648,9 @@ void GlobalInfo::LoadNPCs()
         Boss* boss = new Boss(
             "The Warlord",
             scene.bossSpawnPositions[n]->Position() + (Vector3){0, 0.75f, 0},
-            250,  // maxHealth — tanky
-            5.0f, // speed
-            25    // damage
+            300,  // maxHealth — tanky
+            2.5f, // speed
+            40   // damage
         );
 
         // Reuse Warrior (player) sprites — same as player but tinted red when hostile
@@ -2180,14 +2196,17 @@ void PossessedNPC::Update()
 
     if (dist <= ATTACK_RANGE)
     {
-        // In melee range — attack
-        target = position; // stop moving
-        state = ATTACKING;
-
-        if (attackTimer <= 0)
+        if (player->CurrHealth() > 0)
         {
-            attackTimer = ATTACK_COOLDOWN;
-            player->TakeDamage((float)damage, position);
+            // In melee range — attack
+            target = position; // stop moving
+            state = ATTACKING;
+
+            if (attackTimer <= 0)
+            {
+                attackTimer = ATTACK_COOLDOWN;
+                player->TakeDamage((float)damage, position);
+            }
         }
     }
     else if (dist <= AGGRO_RANGE)
@@ -2277,13 +2296,14 @@ void PossessedNPC::DrawCharacter()
 void Player::TakeDamage(float amount, Vector3 attackPos)
 {
     if (currHealth<=0) return;
-    
+
     state       = HURT;
     hurtTimer   = 0.3f;
 
-    currHealth  -= (amount/armour);
+    float damageTaken   = amount * (100.0f / (100.0f + armour * 10.0f));
+    currHealth          -= damageTaken;
 
-    knockbackVal      = 1;
+    knockbackVal        = 1;
     knockbackVelocity   = Normalize(Vector3Subtract(attackPos, position))*(-amount/armour)*gI.VELOCITY_CONST;
 
     if (currHealth<=0) gI.scene.ShowPlayerDeathScreen();
@@ -2312,7 +2332,12 @@ void Player::Dialogue()
             float dist = Vector3Distance(gI.scene.npcs[i]->Position(), position);
             if (dist > gI.INTERACT_RANGE) continue;
 
+            Boss* boss = dynamic_cast<Boss*>(gI.scene.npcs[i]);
+
+            if (boss && gI.scene.enemiesRemaining>0) continue;
+
             I_Dialogueable* candidate = dynamic_cast<I_Dialogueable*>(gI.scene.npcs[i]);
+
             if (!candidate) continue;
 
             if (dist < closestDist)
@@ -2343,16 +2368,13 @@ void Player::Dialogue()
 
 void Player::Update() 
 {
-    if (gI.scene.dialogueVisible || gI.scene.endScreenVisible) return;
-
-    if (currHealth == 0)
+    if (currHealth <= 0)
     {
         state = DIE;
-        position = {0,0,0};
-        currHealth = maxHealth;
         return;
     }
 
+    if (gI.scene.dialogueVisible) return;
     
     groundRay.position  = position-(Vector3){0, size/2-0.1f, 0};
     Vector2 moveInput   = GetDirectionalInputV();
@@ -2450,9 +2472,14 @@ void Player::Attack()
             if (npc->CurrHealth() <= 0) continue;
 
             Vector3 diff = { npc->Position().x - position.x, 0, npc->Position().z - position.z };
-            if (Magnitude(diff) <= PLAYER_ATTACK_RANGE) npc->TakeDamage((float)(gI.scene.player->CurrDamage()+strength)/1.5f, position);
+            if (Magnitude(diff) <= PLAYER_ATTACK_RANGE) 
+            {
+                float attackPower = currDamage * (100.0f + strength * 10.0f) / 100.0f;
+                npc->TakeDamage(attackPower, position);
+            }
             if (npc->CurrHealth() <= 0) 
             {
+                gI.scene.enemiesRemaining--;
                 int randomCoins = rand()%11+5;
                 coins+=randomCoins;
                 InvUI_Update();
@@ -2468,7 +2495,9 @@ void Player::Attack()
             Vector3 diff = { boss->Position().x - position.x, 0, boss->Position().z - position.z };
             if (Magnitude(diff) <= PLAYER_ATTACK_RANGE)
             {
-                boss->TakeDamage((float)(gI.scene.player->CurrDamage() + strength) / 1.5f, position);
+                float attackPower = currDamage * (100.0f + strength * 10.0f) / 100.0f;
+                boss->TakeDamage(attackPower, position);
+
                 if (boss->CurrHealth() <= 0)
                 {
                     coins += rand() % 51 + 50; // big coin reward for killing the boss
@@ -2604,6 +2633,8 @@ void Player::InvUI_Update()
 
 void Player::UpdateEffects()
 {
+    if (state == DIE) return;
+
     if (gI.scene.dialogueVisible) return;
 
     int inp = (IsKeyPressed(gI.INV_1))?0:(IsKeyPressed(gI.INV_2)?1:-1);
@@ -2772,7 +2803,7 @@ void Boss::TakeDamage(float amount, Vector3 attackPos)
 
     currHealth = Clamp(currHealth - amount, 0, maxHealth);
     state = HURT;
-    hurtTimer = 0.4f;
+    hurtTimer = 0.2f;
 
     knockbackVal    = 1;
     knockbackVelocity = Normalize(Vector3Subtract(attackPos, position)) * -amount * gI.VELOCITY_CONST/5;
@@ -2789,12 +2820,12 @@ void Boss::Update()
     {
         hurtTimer -= gI.dT;
         if (hurtTimer <= 0) state = IDLE;
-
         position.x += knockbackVelocity.x * gI.dT;
         position.z += knockbackVelocity.z * gI.dT;
         knockbackVelocity = knockbackVelocity * knockbackVal;
         if (knockbackVal > 0) knockbackVal -= gI.dT * gI.KNOCKBACK_CONST;
         else knockbackVal = 0;
+
 
         return;
     }
@@ -2822,12 +2853,15 @@ void Boss::Update()
 
     if (dist <= ATTACK_RANGE)
     {
-        target = position;
-        state  = ATTACKING;
-        if (attackTimer <= 0)
+        if (player->CurrHealth() > 0)
         {
-            attackTimer = ATTACK_COOLDOWN;
-            player->TakeDamage((float)damage, position);
+            target = position;
+            state  = ATTACKING;
+            if (attackTimer <= 0)
+            {
+                attackTimer = ATTACK_COOLDOWN;
+                player->TakeDamage((float)damage, position);
+            }
         }
     }
     else
@@ -2901,7 +2935,11 @@ void Boss::DrawCharacter()
 
 void Boss::DrawInteractPrompt()
 {
-    if (!gI.scene.player || gI.scene.dialogueVisible || isHostile) return;
+    cout<<"\n\tBoss Interact\n\n";
+
+    if (!gI.scene.player) return;
+
+    if (gI.scene.dialogueVisible || isHostile) return;
 
     Vector3 toPlayer = {
         gI.scene.player->Position().x - position.x,
@@ -2909,12 +2947,13 @@ void Boss::DrawInteractPrompt()
         gI.scene.player->Position().z - position.z
     };
     float dist = Magnitude(toPlayer);
+
     if (dist <= gI.INTERACT_RANGE)
     {
         Vector2 screenPos = GetWorldToScreen(
             {position.x, position.y + 1.5f, position.z},
             gI.scene.player->Camera()
         );
-        DrawText("[E] Speak", (int)screenPos.x - 35, (int)screenPos.y - 10, 20, RED);
+        DrawText((gI.scene.enemiesRemaining>0?"Clear All The Enemies":"[E] Speak"), (int)screenPos.x - 35, (int)screenPos.y - 10, 20, RED);
     }
 }
