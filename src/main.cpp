@@ -3,8 +3,11 @@
 GlobalInfo gI;
 SaveSystem save(gI.SAVE_FOLDER_PATH);
 string text;
-bool close;
+bool close; // check for when the game should close
 
+// Purpose : Runs at the start of the game, sets things up
+// Params  : void
+// Returns : void
 void Start()
 {
     srand(time(0)); 
@@ -23,8 +26,12 @@ void Start()
     PlayMusicStream(gI.bgMusics[gI.currentMusic]);
 }
 
+// Purpose : Runs everyframe for gameloop
+// Params  : void
+// Returns : void
 void Update()
 {
+    gI.MusicLoop();
     gI.dT = GetFrameTime();
     if (gI.mode == GAME)
     {
@@ -148,12 +155,11 @@ int main () {
     InitWindow(gI.SCREEN_WIDTH, gI.SCREEN_HEIGHT, "The Kalled City Of Waloon");
     InitAudioDevice();
     SetTargetFPS(60);
-    Start();
+    Start(); // initial setup
 
     while (!close){
    
-        Update(); 
-        gI.MusicLoop();
+        Update(); // run the update function 
 
         BeginMode3D(((gI.mode==EDITOR || !gI.scene.player)?gI.scene.sceneCamera.Camera():gI.scene.player->Camera()));
 

@@ -1,11 +1,17 @@
 #include "ClassDef.h"
 
 // Misc ==================================================================================================================================================================================
-
+ 
+// Purpose : Reads the four directional movement keys and returns a raw (un-normalised) 2D input vector
+// Params  : up    (int) — key code for moving forward  (default: FORWARD_KEY)
+//           down  (int) — key code for moving backward (default: BACKWARD_KEY)
+//           left  (int) — key code for moving left     (default: LEFT_KEY)
+//           right (int) — key code for moving right    (default: RIGHT_KEY)
+// Returns : Vector2 — x: horizontal axis, y: vertical axis; each component is -1, 0 or +1
 Vector2 GetDirectionalInputV(int up = gI.FORWARD_KEY, int down = gI.BACKWARD_KEY, int left = gI.LEFT_KEY, int right = gI.RIGHT_KEY)
 {
     Vector2 input = {0.0f, 0.0f};
-
+ 
     if (IsKeyDown(up)) {
         input.y -= 1.0f; // Move up
     }
@@ -18,63 +24,93 @@ Vector2 GetDirectionalInputV(int up = gI.FORWARD_KEY, int down = gI.BACKWARD_KEY
     if (IsKeyDown(right)) {
         input.x += 1.0f; // Move right
     }
-
+ 
     return input;
 }
-
+ 
+// Purpose : Returns a 1D signed input value from two opposing keys (-1, 0 or +1)
+// Params  : a (int) — key that produces -1 (e.g. KEY_Q for up/decrease)
+//           b (int) — key that produces +1 (e.g. KEY_E for down/increase)
+// Returns : float — -1.0f, 0.0f or +1.0f
 float GetInputODFrom(int a, int b) 
 {
-    
     float input = 0.0f;
-
+ 
     if (IsKeyDown(a)) {
-        input -= 1.0f; // Move up
+        input -= 1.0f;
     }
     if (IsKeyDown(b)) {
-        input += 1.0f; // Move down
+        input += 1.0f;
     }
-
+ 
     return input;
 }
-
+ 
+// Purpose : Replaces every space character in a string with an underscore
+// Params  : str (string) — input string
+// Returns : string — copy of the input with spaces replaced by '_'
 string ReplaceWhiteSpaces(std::string str) 
 {
     string newString = str;
-
+ 
     int startPos = 0;
     while((startPos = newString.find(" ", startPos)) != std::string::npos) {
         newString.replace(startPos, 1, "_");
         startPos ++;
     }
-
+ 
     return newString;
 }
-
+ 
+// Purpose : Checks whether a value n lies within the inclusive range [l, b]
+// Params  : n (float) — value to test
+//           l (float) — lower bound (inclusive)
+//           b (float) — upper bound (inclusive)
+// Returns : bool — true if l <= n <= b
 bool IsBetween(float n, float l, float b)
 {
     return n>=l && n<=b;
 }
-
+ 
+// Purpose : Computes the Euclidean length of a 3D vector
+// Params  : v (Vector3) — input vector
+// Returns : float — magnitude (length) of v
 float Magnitude(Vector3 v)
 {
     return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
-
+ 
+// Purpose : Component-wise addition of two Vector3 values
+// Params  : a (Vector3&) — left operand
+//           b (Vector3&) — right operand
+// Returns : Vector3 — a + b
 Vector3 operator+(Vector3& a, Vector3& b)
 {
     return {a.x + b.x, a.y + b.y, a.z + b.z};
 }
-
+ 
+// Purpose : Component-wise subtraction of two Vector3 values
+// Params  : a (Vector3&) — left operand
+//           b (Vector3&) — right operand
+// Returns : Vector3 — a - b
 Vector3 operator-(Vector3& a, Vector3& b)
 {
     return {a.x - b.x, a.y - b.y, a.z - b.z};
 }
-
+ 
+// Purpose : Component-wise addition of two Vector2 values
+// Params  : a (Vector2&) — left operand
+//           b (Vector2&) — right operand
+// Returns : Vector2 — a + b
 Vector2 operator+(Vector2& a, Vector2& b)
 {
     return {a.x + b.x, a.y + b.y};
 }
-
+ 
+// Purpose : Computes the cross product of two 3D vectors
+// Params  : a (Vector3) — first vector
+//           b (Vector3) — second vector
+// Returns : Vector3 — vector perpendicular to both a and b
 Vector3 CrossProduct(Vector3 a, Vector3 b)
 {
     Vector3 result;
@@ -83,7 +119,7 @@ Vector3 CrossProduct(Vector3 a, Vector3 b)
     result.z = a.x * b.y - a.y * b.x;
     return result;
 }
-
+ 
 // Box ==================================================================================================================================================================================
 
 void Box::UpdateRotation() {
@@ -230,6 +266,9 @@ void Scene::AddUIObject(RectTransform* newObject, int i=0)
     uiCount++;    
 }
 
+// Purpose : Remove object pointer from given array
+// Params  : Box*- object to be removed , Box**& - array to remove it from, int& - array size
+// Returns : void
 void RemoveFromSpawnArray(Box* obj, Box**& arr, int& count) 
 {
     for (int i = 0; i < count; i++) 
@@ -1683,6 +1722,9 @@ void GlobalInfo::Assets()
     potions[STRENGTH_POTION]        = Potion("Strength Potion", STRENGTH_BOOST, 60, 20);
 }
 
+// Purpose : Get a potion of unique type
+// Params  : string - type of potion we already have, int tries - default 10, how many tries till give up
+// Returns : string - Potion that is not of the given type
 string UnRepeatedPotion(string type, int tries = 10)
 {
     string name = gI.potions[rand()%7].Name();
@@ -1691,6 +1733,9 @@ string UnRepeatedPotion(string type, int tries = 10)
     return name;
 }
 
+// Purpose : Get the type of given potion
+// Params  : string - name of the potion we have
+// Returns : string - type of the given potion
 string Type(string name)
 {
     if (name.find("Health") != string::npos)
@@ -2043,7 +2088,7 @@ Inventory::~Inventory()
 
 NPC::~NPC() {}
 
-// Civilian ==================================================================================================================================================================================
+// Civilian =================================================================================================================================================================================
 
 void Civilian::DialogueSetup()
 {

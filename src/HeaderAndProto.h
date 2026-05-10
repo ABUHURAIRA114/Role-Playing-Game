@@ -23,7 +23,7 @@ enum Mode { EDITOR, GAME };
 enum GameMode { MENU, STATS, PAUSE, PLAY };
 enum BossDialogueOutcome { BOSS_NONE = 0, BOSS_FIGHT, BOSS_JOIN, BOSS_LEAVE };
 
-struct DialogueNodes;
+struct DialogueNodes; 
 struct AnimationData;
 class TransformMI;
 class Box;
