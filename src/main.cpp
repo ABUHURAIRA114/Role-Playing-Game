@@ -201,7 +201,6 @@ int main () {
     save.SaveScene(gI.scene);
     
     gI.UnloadThings();
-
     cout<<"ENDING";
     CloseWindow();
 }

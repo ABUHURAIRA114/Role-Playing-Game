@@ -126,7 +126,7 @@ void Collider::UpdateBoundary() {
 void CameraMI::CameraFreeMove()
 {
     pitch = Clamp(pitch + GetMouseDelta().y * sensitivity * gI.dT, -90.0f, 90.0f);
-    yaw = Clamp(yaw + GetMouseDelta().x * sensitivity * gI.dT, -90.0f, 90.0f);
+    yaw += GetMouseDelta().x * sensitivity * gI.dT;
     target.x = camera.position.x + 10*sin(pitch)*cos(yaw);
     target.z = camera.position.z + 10*sin(pitch)*sin(yaw);
     target.y = camera.position.y + 10*cos(pitch);
@@ -192,7 +192,7 @@ void Scene::AddCollider(Collider* newObject, int i=0)
     string name = ReplaceWhiteSpaces(newObject->Name());
 
     if (i>0) name = newObject->Name()+to_string(i);
-    if (FindObjectIndex(name) != -1 && newObject->Name()!=gI.ENEMY_SPAWNER_NAME  && newObject->Name()!=gI.CIVIL_SPAWNER_NAME  && newObject->Name()!=gI.MERCHANT_SPAWNER_NAME && newObject->Name()!=gI.BOSS_SPAWNER_NAME) 
+    if (FindColliderIndex(name) != -1) 
     {
         AddCollider(newObject, i+1); // try with new name
         return;
@@ -230,17 +230,41 @@ void Scene::AddUIObject(RectTransform* newObject, int i=0)
     uiCount++;    
 }
 
-void Scene::RemoveObject(int index) {
-    if (index < 0 || index >= objectCount) return;
-    Box** newObjects = new Box*[objectCount - 1];
-    for (int i = 0, j = 0; i < objectCount; i++) {
-        if (i != index) {
-            newObjects[j++] = objects[i];
+void RemoveFromSpawnArray(Box* obj, Box**& arr, int& count) 
+{
+    for (int i = 0; i < count; i++) 
+    {
+        if (arr[i] == obj) 
+        {
+            Box** newArr = (count - 1 > 0) ? new Box*[count - 1] : nullptr;
+            for (int j = 0, k = 0; j < count; j++)
+                if (j != i) newArr[k++] = arr[j];
+            delete[] arr;
+            arr = newArr;
+            count--;
+            return;
         }
     }
+}
+
+void Scene::RemoveObject(int index) 
+{
+    if (index < 0 || index >= objectCount) return;
+
+    Box* obj = objects[index];
+    RemoveFromSpawnArray(obj, enemySpawnPositions,    enemySpawnCount);
+    RemoveFromSpawnArray(obj, civilSpawnPositions,    civilSpawnCount);
+    RemoveFromSpawnArray(obj, merchantSpawnPositions, merchantSpawnCount);
+    RemoveFromSpawnArray(obj, bossSpawnPositions,     bossSpawnCount);
+
+    Box** newObjects = (objectCount - 1 > 0) ? new Box*[objectCount - 1] : nullptr;
+    for (int i = 0, j = 0; i < objectCount; i++)
+        if (i != index) newObjects[j++] = objects[i];
     delete[] objects;
     objects = newObjects;
     objectCount--;
+
+    delete obj;
 }
 
 int Scene::FindColliderIndex(string name)
@@ -474,7 +498,6 @@ void Scene::DrawSceneUI(int mode)
         }
         else if (uiName.find("TUT_") != string::npos)
         {
-            cout<<uiName<<endl;
             if (mode != GAME || !tutorialVisible) continue;
         }
         Button* button = dynamic_cast<Button*>(uiElement);
@@ -529,7 +552,7 @@ void Scene::AddNPC(PossessedNPC* npc, int k = 1)
     id = npc->ID()+k;
     if (IsCharacter(id)) 
     {
-        AddNPC(npc, k+rand()%100);
+        AddNPC(npc, k+1);
         return;
     } 
     npc->ID(id);
@@ -548,7 +571,7 @@ void Scene::AddNPC(NPC* npc, int k=1)
     id = npc->ID()+k;
     if (IsCharacter(id)) 
     {
-        AddNPC(npc, k+rand()%100); // try with new name
+        AddNPC(npc, k+1); // try with new id
         return;
     } 
     npc->ID(id);
@@ -712,7 +735,7 @@ void Scene::ShowBossDeathScreen()
 {
     Banner* title = dynamic_cast<Banner*>(ui[FindUIObjectIndex("PLA_END_TITLE")]);
     Banner* text  = dynamic_cast<Banner*>(ui[FindUIObjectIndex("PLA_END_TEXT")]);
-    if (title) title->_Text()._Text("The Era Of Prosperity");
+    if (title) title->_Text()._Text("Evil Perished");
     if (text)  text->_Text()._Text(
         "The Warlord hit the ground and did not rise.\n\n"
         "For a moment, no one moved. The wind itself seemed to pause, "
@@ -764,16 +787,9 @@ Scene::~Scene()
     for (int i = 0; i < npcCount; i++) delete npcs[i]; 
     delete[] npcs;
 
-    for (int i = 0; i < enemySpawnCount; i++) delete enemySpawnPositions[i];
     delete[] enemySpawnPositions;
-
-    for (int i = 0; i < civilSpawnCount; i++) delete civilSpawnPositions[i];
     delete[] civilSpawnPositions;
-
-    for (int i = 0; i < merchantSpawnCount; i++) delete merchantSpawnPositions[i];
     delete[] merchantSpawnPositions;
-
-    for (int i = 0; i < bossSpawnCount; i++) delete bossSpawnPositions[i];
     delete[] bossSpawnPositions;
 
     delete player;
@@ -928,12 +944,14 @@ void SaveSystem::LoadScene(Scene& scene)
                 continue;
             }
 
-            if      (name == gI.ENEMY_SPAWNER_NAME)    scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.enemySpawnPositions,    gI.scene.enemySpawnCount);
-            else if (name == gI.CIVIL_SPAWNER_NAME)    scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.civilSpawnPositions,    gI.scene.civilSpawnCount);
-            else if (name == gI.MERCHANT_SPAWNER_NAME) scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.merchantSpawnPositions, gI.scene.merchantSpawnCount);
-            else if (name == gI.BOSS_SPAWNER_NAME)     scene.AddSpawnObject(new Box(name, position, rotationOrScale, scale, assetName), gI.scene.bossSpawnPositions,     gI.scene.bossSpawnCount);
+            Box* newBox = new Box(name, position, rotationOrScale, scale, assetName);
 
-            scene.AddObject(new Box(name, position, rotationOrScale, scale, assetName));
+            if      (name == gI.ENEMY_SPAWNER_NAME)    scene.AddSpawnObject(newBox, gI.scene.enemySpawnPositions,    gI.scene.enemySpawnCount);
+            else if (name == gI.CIVIL_SPAWNER_NAME)    scene.AddSpawnObject(newBox, gI.scene.civilSpawnPositions,    gI.scene.civilSpawnCount);
+            else if (name == gI.MERCHANT_SPAWNER_NAME) scene.AddSpawnObject(newBox, gI.scene.merchantSpawnPositions, gI.scene.merchantSpawnCount);
+            else if (name == gI.BOSS_SPAWNER_NAME)     scene.AddSpawnObject(newBox, gI.scene.bossSpawnPositions,     gI.scene.bossSpawnCount);
+
+            scene.AddObject(newBox);
         }
     }
 }
@@ -1868,6 +1886,11 @@ void GlobalInfo::UnloadThings()
     {
         UnloadTexture(sprite.second);
     }
+
+    for (const auto& music : bgMusics)
+    {
+        UnloadMusicStream(music);
+    }
 }
 
 void GlobalInfo::UnloadNPCs()
@@ -2523,7 +2546,7 @@ void Player::Update()
         moveInput = Vector2Zero();
     }
 
-    Vector3 inputDir    = {moveInput.x * gI.dT * speed * speedMultiplier + knockbackVelocity.x * gI.dT, 0, moveInput.y * gI.dT * speed * speedMultiplier + knockbackVelocity.x * gI.dT};
+    Vector3 inputDir    = {moveInput.x * gI.dT * speed * speedMultiplier + knockbackVelocity.x * gI.dT, 0, moveInput.y * gI.dT * speed * speedMultiplier + knockbackVelocity.z * gI.dT};
 
     knockbackVelocity   = knockbackVelocity*knockbackVal;
     if (knockbackVal>0) knockbackVal -= gI.dT * gI.KNOCKBACK_CONST;
@@ -2588,7 +2611,7 @@ void Player::Update()
 
 void Player::Attack()
 {
-    if (currHealth < 0 || gI.scene.dialogueVisible) return;
+    if (currHealth <= 0 || gI.scene.dialogueVisible) return;
     
     if (IsKeyPressed(gI.ATTACK_KEY) || IsMouseButtonPressed(gI.ATTACK_KEY_MOUSE)) state = ATTACKING;
 
@@ -2647,7 +2670,6 @@ void Player::Attack()
 
 void Player::DrawCharacter()
 {
-    // Ensure frameWidth is 
     int i = state;
     if (state != lastState) {
         currentFrame = 0;
@@ -2792,7 +2814,7 @@ void Player::UpdateEffects()
     }
     
     map<int, float> temp = effects;
-    vector<int> damageBoosts;
+    int damageBoosts=0;
     
     for (const auto& effect : temp)
     {
@@ -2814,7 +2836,6 @@ void Player::UpdateEffects()
 
             case STRENGTH_BOOST:
             {
-                
                 if (effect.second<=0)
                 {
                     effects.erase(effect.first);
@@ -2822,17 +2843,14 @@ void Player::UpdateEffects()
                     continue;
                 }
 
-                damageBoosts.push_back(effect.second);
+                damageBoosts++;
                 effects[effect.first] -= gI.dT;
                 break;
             }
         }
     }
 
-    for (int i = 0; i < damageBoosts.size(); i++)
-    {
-        currDamage = damage + 10;
-    }
+    currDamage = damage + 10*damageBoosts; 
 }
 
 // Boss ==================================================================================================================================================================================
@@ -2902,10 +2920,8 @@ void Boss::Dialogue()
                 }
                 break;
 
-            case 2: // Leave the village — teleport player far away
+            case 2: 
                 outcome = BOSS_LEAVE;
-                if (gI.scene.player)
-                    gI.scene.player->Position({50.0f, 0.65f, 50.0f});
                 {
                     Banner* title = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PLA_END_TITLE")]);
                     Banner* text  = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PLA_END_TEXT")]);
@@ -2916,7 +2932,7 @@ void Boss::Dialogue()
                         "\nand the village growing smaller behind him.\n\n"
                         "The villagers watched from their windows as the one warrior\n"
                         "who could have saved them disappeared into the grey hills.\n\n"
-                        "The Boss laughed, a long, slow laugh \nthat rolled through "
+                        "The Warlord laughed, a long, slow laugh \nthat rolled through "
                         "the streets like smoke.\n\n"
                         "That winter was the harshest Waloon had ever known. "
                         "\nNot because of the cold, but because of what the cold "

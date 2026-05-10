@@ -575,7 +575,7 @@ class Player : public Character
     float   knockbackVal;
 
     public:
-    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 1, float healthRegenRate = 0.5f, float speed=4, int damage = 10, int strength = 1, int charisma = 1, int armour = 1, Vector3 position = {-1.1f,0,9.25f}, Vector3 target = {0,0,0}) 
+    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 4, float healthRegenRate = 0.5f, float speed=4, int damage = 10, int strength = 1, int charisma = 1, int armour = 1, Vector3 position = {-1.1f,0,9.25f}, Vector3 target = {0,0,0}) 
     : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), 
     currStamina(maxStamina), staminaRegenRate(staminaRegenRate), healthRegenRate(healthRegenRate), interactNPC(nullptr), attackHitDealt(true),
     charisma(charisma), strength(strength), armour(armour), coins(50), lastState(-1), animEnd(false)
@@ -605,7 +605,6 @@ class Player : public Character
         try
         { inventory.AddItem(value); }
         catch(...) { throw; }
-        cout<<Name();
 
         InvUI_Update();
     }
