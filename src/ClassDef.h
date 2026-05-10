@@ -81,7 +81,7 @@ struct Scene
     NPC **npcs;
     int npcCount;
 
-    bool dialogueVisible, endScreenVisible;
+    bool dialogueVisible, endScreenVisible, tutorialVisible;
     float endScreenTime;
     int gameMode = MENU;
 
@@ -90,7 +90,7 @@ struct Scene
     Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), enemies(nullptr), npcs(nullptr), npcCount(0),
     enemyCount(0), merchantSpawnPositions(nullptr), merchantSpawnCount(0), civilSpawnPositions(nullptr), civilSpawnCount(0), 
     enemySpawnPositions(nullptr), enemySpawnCount(0), bossSpawnPositions(nullptr), bossSpawnCount(0), dialogueVisible(false), 
-    sceneCamera(), endScreenTime(0), player(nullptr), enemiesRemaining(0)
+    sceneCamera(), endScreenTime(0), player(nullptr), enemiesRemaining(0), tutorialVisible(false)
     {}
 
     ~Scene();
@@ -198,6 +198,8 @@ struct GlobalInfo
     const string DEFAULT_MODEL_NAME     = "DEF_MOD";
     const string COLLIDER_MODEL_NAME    = "COLLIDER";
     static GlobalInfo instance;
+
+    bool isStartingFromScratch = true;
     
     map<string, Model> models;
     map<string, Texture2D> textures;
@@ -255,7 +257,6 @@ class TransformMI
 {
     protected:
 
-    bool isActive;
     string name;
     Vector3 position;
     Vector3 rotation;
@@ -457,6 +458,10 @@ class SaveSystem
 
     void SavePlayer(Player& player);
     void LoadPlayer();
+
+    void SaveEnemies();
+    void LoadEnemies();
+    void UnloadEnemies();
 };
 
 class Inventory
@@ -693,10 +698,15 @@ class PossessedNPC : public NPC
 
     public:
     PossessedNPC(string name = "Possessed", Vector3 position = {0, 0, 0},
-                 float maxHealth = 30, float speed = 2, int damage = 8)
+                 float maxHealth = 30, float speed = 2, int damage = 8,
+                 int initState = IDLE, float initCurrHealth = -1)
         : NPC(name, maxHealth, speed, position, ENEMY, damage),
           attackTimer(0), spawnPos(position),
-          npcLastState(-1), npcAnimEnd(false) {}
+          npcLastState(-1), npcAnimEnd(false)
+    {
+        state = initState;
+        currHealth = (initCurrHealth < 0) ? maxHealth : initCurrHealth;
+    }
 
     // Called externally when player's attack lands on this NPC
     void TakeDamage(float, Vector3);

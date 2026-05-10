@@ -472,7 +472,11 @@ void Scene::DrawSceneUI(int mode)
         {
             if (mode != GAME || !endScreenVisible || (endScreenVisible && endScreenTime<3)) continue;
         }
-
+        else if (uiName.find("TUT_") != string::npos)
+        {
+            cout<<uiName<<endl;
+            if (mode != GAME || !tutorialVisible) continue;
+        }
         Button* button = dynamic_cast<Button*>(uiElement);
         Text*   text   = dynamic_cast<Text*>(uiElement);
         Banner* banner = dynamic_cast<Banner*>(uiElement);
@@ -497,7 +501,7 @@ void Scene::DrawSceneUI(int mode)
         }
         else if (text)
         {
-            DrawText(text->_Text().c_str(), text->Rect().x, text->Rect().y, 20, text->_Color());
+            DrawText(text->_Text().c_str(), text->Rect().x, text->Rect().y, text->Rect().width, text->_Color());
         }
         else if (banner)
         {
@@ -1004,6 +1008,101 @@ void SaveSystem::SavePlayer(Player& player)
     cout << "Player saved to " << saveFilePath+R"(\player.txt)" << endl;
 }
 
+void SaveSystem::SaveEnemies()
+{
+    // Format (one line per enemy):
+    // ENEMY <name> <pos_x> <pos_y> <pos_z> <state> <currHealth>
+    ofstream file(saveFilePath+R"(\enemies.txt)", ios::out);
+    if (!file.is_open())
+    {
+        cout << "SaveEnemies: could not open " << saveFilePath+R"(\enemies.txt)" << endl;
+        return;
+    }
+
+    Scene& scene = gI.scene;
+    for (int i = 0; i < scene.enemyCount; i++)
+    {
+        PossessedNPC* e = scene.enemies[i];
+        file << "ENEMY "
+             << e->Name()        << " "
+             << e->Position().x  << " " << e->Position().y << " " << e->Position().z << " "
+             << e->State()       << " "
+             << e->CurrHealth()  << "\n";
+    }
+
+    file.close();
+    cout << "Enemies saved to " << saveFilePath+R"(\enemies.txt)" << endl;
+    UnloadEnemies();
+}
+
+void SaveSystem::LoadEnemies()
+{
+    // Reads enemies.txt and spawns each PossessedNPC with saved position, state, and health.
+    ifstream file(saveFilePath+R"(\enemies.txt)", ios::in);
+    if (!file.is_open())
+    {
+        cout << "LoadEnemies: no save found at " << saveFilePath+R"(\enemies.txt)" << endl;
+        return;
+    }
+
+    Scene& scene = gI.scene;
+    scene.enemiesRemaining = 0;
+
+    string token;
+    while (file >> token)
+    {
+        if (token != "ENEMY") continue;
+
+        string name;
+        Vector3 pos;
+        int state;
+        float currHealth;
+
+        file >> name >> pos.x >> pos.y >> pos.z >> state >> currHealth;
+
+        PossessedNPC* npc = new PossessedNPC(
+            name,
+            pos,
+            30,    // maxHealth
+            2.5f,  // speed
+            10,    // damage
+            state,
+            currHealth
+        );
+
+        gI.LoadAnim(npc, IDLE,      "Idle",     "Possesed", 5);
+        gI.LoadAnim(npc, MOVING,    "Walk",     "Possesed", 6);
+        gI.LoadAnim(npc, JUMPING,   "Jump",     "Possesed", 5);
+        gI.LoadAnim(npc, ATTACKING, "Attack01", "Possesed", 11);
+        gI.LoadAnim(npc, DIE,       "Death",    "Possesed", 10);
+        gI.LoadAnim(npc, HURT,      "Hurt",     "Possesed", 4);
+
+        scene.AddNPC(npc);
+        if (state != DIE) scene.enemiesRemaining++;
+    }
+
+    file.close();
+    cout << "Enemies loaded from " << saveFilePath+R"(\enemies.txt)" << endl;
+}
+
+void SaveSystem::UnloadEnemies()
+{
+    Scene& scene = gI.scene;
+    if (!scene.enemies) return;
+
+    for (int i = 0; i < scene.enemyCount; i++)
+    {
+        delete scene.enemies[i];
+        scene.enemies[i] = nullptr;
+    }
+    delete[] scene.enemies;
+    scene.enemies    = nullptr;
+    scene.enemyCount = 0;
+    scene.enemiesRemaining = 0;
+
+    cout << "Enemies unloaded." << endl;
+}
+
 void SaveSystem::LoadPlayer()
 {
     gI.PlayerInfo();
@@ -1013,6 +1112,7 @@ void SaveSystem::LoadPlayer()
     if (!file.is_open())
     {
         gI.totalStatPoints = 10;
+        gI.isStartingFromScratch = true;
         gI.scene.gameMode = STATS;
         cout << "LoadPlayer: no save found at " << saveFilePath+R"(\player.txt)" << endl;
         return;
@@ -1024,9 +1124,38 @@ void SaveSystem::LoadPlayer()
         if (token == "END")
         {
             gI.totalStatPoints = 10;
+            gI.isStartingFromScratch = true;
 
             gI.scene.gameMode = STATS;
             cout << "Game Ended, Starting Over" << saveFilePath+R"(\player.txt)" << endl;
+                       
+            try
+            {
+                player.AddItem(new Potion(gI.potions[POTENT_HEALTH_POTION]));
+                player.AddItem(new Potion(gI.potions[POTENT_HEALTH_POTION]));
+                player.AddItem(new Potion(gI.potions[POTENT_STAMINA_POTION]));
+            }
+            catch(const failed_execution& e)
+            {
+                cout << e.what() << '\n';
+            }
+            catch(const out_of_space& e)
+            {
+                cout << e.what() << '\n';
+            }
+            catch(const empty_collection& e)
+            {
+                cout << e.what() << '\n';
+            }
+            catch(const out_of_range& e)
+            {
+                cout << e.what() << '\n';
+            }
+            catch(...)
+            {
+                cout <<"Unknown Exception\n";
+            }
+
             return;
         }
 
@@ -1116,6 +1245,8 @@ void SaveSystem::LoadPlayer()
 
     file.close();
 
+    gI.isStartingFromScratch = false;
+
     // Sync the UI bars and inventory display after loading
     player.InvUI_Update();
     player.StateUpdate();
@@ -1137,29 +1268,50 @@ void GlobalInfo::LoadMenuUI()
         (Vector2){0, 0}, (Vector2){w, h}, 0, cream));
 
     // Title panel
-    scene.AddUIObject(new Banner("MEN_TITLE_BG", "",
-        (Vector2){w*0.25f, h*0.15f}, (Vector2){w*0.5f, 80}, 0, (Color){180, 150, 110, 255}));
-    scene.AddUIObject(new Banner("MEN_TITLE", "The Kalled City Of Waloon",
-        (Vector2){w*0.25f + 10, h*0.15f + 10}, (Vector2){w*0.5f - 20, 60}, 42, darkBrown));
+    scene.AddUIObject(new Banner("MEN_TITLE_BG", "", (Vector2){w*0.25f, h*0.15f}, (Vector2){w*0.5f, 80}, 0, (Color){180, 150, 110, 255}));
+    scene.AddUIObject(new Banner("MEN_TITLE", "The Kalled City Of Waloon", (Vector2){w*0.25f + 10, h*0.15f + 10}, (Vector2){w*0.5f - 20, 60}, 42, darkBrown));
 
-    scene.AddUIObject(new Banner("MEN_SUBTITLE", "A game",
-        (Vector2){w*0.25f, h*0.15f + 90}, (Vector2){w*0.5f, 30}, 18,
-        (Color){180, 150, 110, 255}));
+    scene.AddUIObject(new Banner("MEN_SUBTITLE", "A game", (Vector2){w*0.25f, h*0.15f + 90}, (Vector2){w*0.5f, 30}, 18, (Color){180, 150, 110, 255}));
 
     float btnW = 260, btnH = 52;
     float btnX = (w - btnW) / 2.0f;
     float startY = h * 0.42f;
     float gap = 70;
 
-    scene.AddUIObject(new Button("MEN_BTN_PLAY", "Play",
-        (Vector2){btnX, startY}, (Vector2){btnW, btnH}, 24, btnColor));
+    scene.AddUIObject(new Button("MEN_BTN_PLAY", "Play", (Vector2){btnX, startY}, (Vector2){btnW, btnH}, 24, btnColor));
+    scene.AddUIObject(new Button("MEN_BTN_TUTORIAL", "Tutorial", (Vector2){btnX, startY + gap}, (Vector2){btnW, btnH}, 24, btnColor));
+    scene.AddUIObject(new Button("MEN_BTN_QUIT", "Quit", (Vector2){btnX, startY + 2*gap}, (Vector2){btnW, btnH}, 24, (Color){100, 30, 20, 255}));
 
-    scene.AddUIObject(new Button("MEN_BTN_TUTORIAL", "Tutorial",
-        (Vector2){btnX, startY + gap}, (Vector2){btnW, btnH}, 24, btnColor));
+    float tPanelW = w * 0.55f, tPanelH = h * 0.72f;
+    float tPanelX = (w - tPanelW) / 2.0f;
+    float tPanelY = (h - tPanelH) / 2.0f;
 
-    scene.AddUIObject(new Button("MEN_BTN_QUIT", "Quit",
-        (Vector2){btnX, startY + 2*gap}, (Vector2){btnW, btnH}, 24,
-        (Color){100, 30, 20, 255}));
+
+
+    // Drop shadow
+    scene.AddUIObject(new Banner("MEN_TUT_SHADOW", "", (Vector2){tPanelX + 6, tPanelY + 6}, (Vector2){tPanelW, tPanelH}, 0, (Color){20, 10, 5, 255}));
+    // Panel border
+    scene.AddUIObject(new Banner("MEN_TUT_BORDER", "", (Vector2){tPanelX - 4, tPanelY - 4}, (Vector2){tPanelW + 8, tPanelH + 8}, 0, (Color){120, 80, 45, 255}));
+    // Panel background
+    scene.AddUIObject(new Banner("MEN_TUT_BG", "", (Vector2){tPanelX, tPanelY}, (Vector2){tPanelW, tPanelH}, 0, (Color){245, 235, 210, 255}));
+    // Header bar
+    scene.AddUIObject(new Banner("MEN_TUT_HEADER_BG", "", (Vector2){tPanelX, tPanelY}, (Vector2){tPanelW, 70}, 0, (Color){80, 48, 28, 255}));
+    // Header title text
+    scene.AddUIObject(new Banner("MEN_TUT_HEADER", "How To Play", (Vector2){tPanelX + 20, tPanelY + 14}, (Vector2){tPanelW - 80, 42}, 36, (Color){80, 48, 28, 255}));
+    // Body text area
+    scene.AddUIObject(new Text("MEN_TUT_BODY", 
+        "Movement-WASD or Arrow Keys\n\n"
+        "Sprinting-L/R Shift\n\n"
+        "Attack-L/R Control or Left Mouse Key\n\n"
+        "1/2 to use the potions in inventory while not in dialogue\n\n"
+        "During dialogue 1/2/3 to select choice\n\n"
+        , (Vector2){tPanelX + 24, tPanelY + 90}, (Vector2){35, 0}, btnColor));
+
+    // Close button (top-right of panel)
+
+    float closeSz = 44;
+
+    scene.AddUIObject(new Button("MEN_TUT_BTN_CLOSE", "X", (Vector2){tPanelX + tPanelW - closeSz - 10, tPanelY + 13}, (Vector2){closeSz, closeSz}, 22, (Color){100, 30, 20, 255}));
 }
 
 void GlobalInfo::LoadPauseUI()
@@ -1365,9 +1517,9 @@ void GlobalInfo::PlayerUI()
 
     grid.OrderUI(VERTICAL);
 
-    scene.AddUIObject(new Text("PLA_PL_INV_T", "A", (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
-    scene.AddUIObject(new Text("PLA_PL_INV_T_1", "B", (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}, {60, 50}, BLACK));
-    scene.AddUIObject(new Text("PLA_PL_COINS", "0 Coins", (Vector2){(float)buttonSize/10.0f + margin, scene.ui[scene.uiCount-3]->Rect().y+buttonSize+10}, {60, 50}, YELLOW));
+    scene.AddUIObject(new Text("PLA_PL_INV_T", "A", (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}       , {20, 50}, BLACK));
+    scene.AddUIObject(new Text("PLA_PL_INV_T_1", "B", (Vector2){(float)buttonSize/10.0f + buttonSize + margin, scene.ui[scene.uiCount-2]->Rect().y}     , {20, 50}, BLACK));
+    scene.AddUIObject(new Text("PLA_PL_COINS", "0 Coins", (Vector2){(float)buttonSize/10.0f + margin, scene.ui[scene.uiCount-3]->Rect().y+buttonSize+10}, {20, 50}, YELLOW));
 
 
 }
@@ -1383,37 +1535,6 @@ void GlobalInfo::PlayerInfo()
     LoadAnim(scene.player, ATTACKING,"Attack01","Warrior",  6);
     LoadAnim(scene.player, DIE,      "Death",   "Warrior",  5);
     LoadAnim(scene.player, HURT,     "Hurt",    "Warrior",  4);
- 
-    try
-    {
-        
-        scene.player->AddItem(new Potion(potions[POTENT_HEALTH_POTION]));
-        cout<<scene.player->Name();
-        scene.player->AddItem(new Potion(potions[POTENT_HEALTH_POTION]));
-
-        scene.player->AddItem(new Potion(potions[POTENT_STAMINA_POTION]));
-    }
-    catch(const failed_execution& e)
-    {
-        cout << e.what() << '\n';
-    }
-    catch(const out_of_space& e)
-    {
-        cout << e.what() << '\n';
-    }
-    catch(const empty_collection& e)
-    {
-        cout << e.what() << '\n';
-    }
-    catch(const out_of_range& e)
-    {
-        cout << e.what() << '\n';
-    }
-    catch(...)
-    {
-        cout <<"Unknown Exception\n";
-    }
-
 
 }
 
@@ -1569,26 +1690,34 @@ string Type(string name)
 void GlobalInfo::LoadNPCs()
 {
     scene.enemiesRemaining = 0;
-    for (int n = 0; n < scene.enemySpawnCount; n++)
+
+    if (isStartingFromScratch)
     {
-        PossessedNPC* npc = new PossessedNPC(
-            "Possessed_" + to_string(n),
-            scene.enemySpawnPositions[n]->Position() + (Vector3){0, 0.75f, 0},
-            30,   // maxHealth
-            2.5f, // speed
-            10    // damage
-        );
+        for (int n = 0; n < scene.enemySpawnCount; n++)
+        {
+            PossessedNPC* npc = new PossessedNPC(
+                "Possessed_" + to_string(n),
+                scene.enemySpawnPositions[n]->Position() + (Vector3){0, 0.75f, 0},
+                30,   // maxHealth
+                2.5f, // speed
+                10    // damage
+            );
 
-        
-        LoadAnim(npc, IDLE,     "Idle", "Possesed",    5);
-        LoadAnim(npc, MOVING,   "Walk", "Possesed",    6);
-        LoadAnim(npc, JUMPING,  "Jump", "Possesed",    5);
-        LoadAnim(npc, ATTACKING,"Attack01", "Possesed",11);
-        LoadAnim(npc, DIE,      "Death", "Possesed",   10);
-        LoadAnim(npc, HURT,     "Hurt", "Possesed",    4);
+            LoadAnim(npc, IDLE,     "Idle", "Possesed",    5);
+            LoadAnim(npc, MOVING,   "Walk", "Possesed",    6);
+            LoadAnim(npc, JUMPING,  "Jump", "Possesed",    5);
+            LoadAnim(npc, ATTACKING,"Attack01", "Possesed",11);
+            LoadAnim(npc, DIE,      "Death", "Possesed",   10);
+            LoadAnim(npc, HURT,     "Hurt", "Possesed",    4);
 
-        scene.AddNPC(npc);
-        scene.enemiesRemaining++;
+            scene.AddNPC(npc);
+            scene.enemiesRemaining++;
+        }
+    }
+    else
+    {
+        SaveSystem ss(SAVE_FOLDER_PATH);
+        ss.LoadEnemies();
     }
 
     string names[15] = {

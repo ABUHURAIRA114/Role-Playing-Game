@@ -34,11 +34,16 @@ void Update()
         {
             case MENU:
             {
-                Button* play   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_PLAY")]);
-                Button* quit   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_QUIT")]);
+                Button* play     = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_PLAY")]);
+                Button* quit     = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_QUIT")]);
+                Button* tutorial = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_BTN_TUTORIAL")]);
+                Button* tutClose = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("MEN_TUT_BTN_CLOSE")]);
+ 
+                if      (play     && play->IsClicked() && !gI.scene.tutorialVisible)    { gI.scene.gameMode = PLAY; ShowCursor(); save.LoadPlayer();  gI.LoadNPCs();}
+                else if (quit     && quit->IsClicked() && !gI.scene.tutorialVisible)    { close = true; }
+                else if (tutorial && tutorial->IsClicked())                             { gI.scene.tutorialVisible = true;  }
+                else if (tutClose && tutClose->IsClicked())                             { gI.scene.tutorialVisible = false; }
 
-                if (play   && play->IsClicked())   { gI.scene.gameMode = PLAY; ShowCursor(); save.LoadPlayer();  gI.LoadNPCs();}
-                else if (quit   && quit->IsClicked())    close = true;
             }
             break;
 
@@ -61,8 +66,8 @@ void Update()
                 Button* quit   = dynamic_cast<Button*>(gI.scene.ui[gI.scene.FindUIObjectIndex("PAU_BTN_QUIT")]);
 
                 if  (resume && resume->IsClicked())     { gI.scene.gameMode = PLAY; DisableCursor();  }
-                else if (menu   && menu->IsClicked())   { gI.scene.gameMode = MENU; ShowCursor(); save.SavePlayer(*gI.scene.player); gI.UnloadNPCs();}
-                else if (quit   && quit->IsClicked())   { close = true; save.SavePlayer(*gI.scene.player); gI.scene.dialogueVisible = false; }
+                else if (menu   && menu->IsClicked())   { gI.scene.gameMode = MENU; ShowCursor(); save.SavePlayer(*gI.scene.player); save.SaveEnemies(); gI.UnloadNPCs();}
+                else if (quit   && quit->IsClicked())   { close = true; save.SavePlayer(*gI.scene.player); save.SaveEnemies(); gI.scene.dialogueVisible = false; }
             }
             break;
 
