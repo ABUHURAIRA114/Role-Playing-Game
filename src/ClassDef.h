@@ -90,7 +90,7 @@ struct Scene
     Scene() : objects(nullptr), objectCount(0), ui(nullptr), uiCount(0), enemies(nullptr), npcs(nullptr), npcCount(0),
     enemyCount(0), merchantSpawnPositions(nullptr), merchantSpawnCount(0), civilSpawnPositions(nullptr), civilSpawnCount(0), 
     enemySpawnPositions(nullptr), enemySpawnCount(0), bossSpawnPositions(nullptr), bossSpawnCount(0), dialogueVisible(false), 
-    sceneCamera(), endScreenTime(0), player(nullptr)
+    sceneCamera(), endScreenTime(0), player(nullptr), enemiesRemaining(0)
     {}
 
     ~Scene();
@@ -155,50 +155,58 @@ class Potion : public Item
 
 struct GlobalInfo
 {
-    const int SCREEN_WIDTH = 1920;
-    const int SCREEN_HEIGHT = 1080;
-    const float MAX_SPEED = 20;
-    const float WHEEL_SENSITIVITY = 1.0f;
-    const float BAR_WIDTH = 300;
-    const float INTERACT_RANGE = 1.5f;
-    const float VELOCITY_CONST = 5;
-    const float KNOCKBACK_CONST = 7;
+    const int SCREEN_WIDTH          = 1920;
+    const int SCREEN_HEIGHT         = 1080;
+    const float MAX_SPEED           = 20;
+    const float WHEEL_SENSITIVITY   = 1.0f;
+    const float BAR_WIDTH           = 300;
+    const float INTERACT_RANGE      = 1.5f;
+    const float VELOCITY_CONST      = 5;
+    const float KNOCKBACK_CONST     = 7;
 
-    const int FREE_CAMERA_KEY = MOUSE_BUTTON_RIGHT;
-    const int SELECTION_KEY = MOUSE_BUTTON_LEFT;
-    const int FORWARD_KEY = KEY_W;
-    const int BACKWARD_KEY = KEY_S;
-    const int LEFT_KEY = KEY_A;
-    const int RIGHT_KEY = KEY_D;
-    const int JUMP_KEY = KEY_SPACE;
-    const int SPRINT_KEY = KEY_LEFT_SHIFT;
-    const int ATTACK_KEY = KEY_LEFT_CONTROL;
-    const int ATTACK_KEY_MOUSE = MOUSE_BUTTON_LEFT;
-    const int INV_1 = KEY_ONE;
-    const int INV_2 = KEY_TWO;
-    const int INTERACT_KEY = KEY_E;
+    const int FREE_CAMERA_KEY           = MOUSE_BUTTON_RIGHT;
+    const int SELECTION_KEY             = MOUSE_BUTTON_LEFT;
+    const int FORWARD_KEY               = KEY_W;
+    const int BACKWARD_KEY              = KEY_S;
+    const int LEFT_KEY                  = KEY_A;
+    const int RIGHT_KEY                 = KEY_D;
+    const int SECONDARY_FORWARD_KEY     = KEY_UP;
+    const int SECONDARY_BACKWARD_KEY    = KEY_DOWN;
+    const int SECONDARY_LEFT_KEY        = KEY_LEFT;
+    const int SECONDARY_RIGHT_KEY       = KEY_RIGHT;
+    const int JUMP_KEY                  = KEY_SPACE;
+    const int SPRINT_KEY                = KEY_LEFT_SHIFT;
+    const int SECONDARY_SPRINT_KEY      = KEY_RIGHT_SHIFT;
+    const int ATTACK_KEY                = KEY_LEFT_CONTROL;
+    const int ATTACK_KEY_MOUSE          = MOUSE_BUTTON_LEFT;
+    const int INV_1                     = KEY_ONE;
+    const int INV_2                     = KEY_TWO;
+    const int INTERACT_KEY              = KEY_E;
+    
     int mode = GAME;
     
-    const string MODELS_FOLDER_PATH = "./assets/models"; 
-    const string TEXTURES_FOLDER_PATH = "./assets/textures"; 
-    const string SPRITES_FOLDER_PATH = "./assets/sprites"; 
-    const string ENEMY_SPAWNER_NAME = "ENEMY_SPAWNER"; 
-    const string CIVIL_SPAWNER_NAME = "CIVIL_SPAWNER"; 
-    const string MERCHANT_SPAWNER_NAME = "MERCHANT_SPAWNER"; 
-    const string BOSS_SPAWNER_NAME     = "BOSS_SPAWNER"; 
+    const string MODELS_FOLDER_PATH     = "./assets/models"; 
+    const string TEXTURES_FOLDER_PATH   = "./assets/textures"; 
+    const string SPRITES_FOLDER_PATH    = "./assets/sprites"; 
+    const string MUSIC_FOLDER_PATH      = "./assets/audio"; 
+    const string ENEMY_SPAWNER_NAME     = "ENEMY_SPAWNER"; 
+    const string CIVIL_SPAWNER_NAME     = "CIVIL_SPAWNER"; 
+    const string MERCHANT_SPAWNER_NAME  = "MERCHANT_SPAWNER"; 
+    const string BOSS_SPAWNER_NAME      = "BOSS_SPAWNER"; 
     
-    const string SAVE_FOLDER_PATH = "./saves"; 
-    const string DEFAULT_MODEL_NAME = "DEF_MOD";
-    const string COLLIDER_MODEL_NAME = "COLLIDER";
+    const string SAVE_FOLDER_PATH       = "./saves"; 
+    const string DEFAULT_MODEL_NAME     = "DEF_MOD";
+    const string COLLIDER_MODEL_NAME    = "COLLIDER";
     static GlobalInfo instance;
     
     map<string, Model> models;
     map<string, Texture2D> textures;
     map<string, Texture2D> sprites;
+    vector<Music> bgMusics;
     Scene scene;
     float dT;
     int totalStatPoints = 10;
-    
+    int currentMusic    = 0;
     /// @brief  size-->10
     const string CIVIL_GREETINGS[10] = {
         "I've got work to do, so make it quick.",           "Hmm? Oh, sorry. I was lost in thought.",               "Things have been strange lately. Best to keep your head down.",
@@ -238,7 +246,7 @@ struct GlobalInfo
     LoadDialogueBox(), LoadEndScreenUI(), 
     LoadStatsUI(), SetPlayerStats(),
     LoadMenuUI(), LoadPauseUI(), LoadNPCs(),
-    UnloadNPCs(), UnloadThings();
+    UnloadNPCs(), UnloadThings(), MusicLoop();
     private:
     GlobalInfo() {} 
 };
@@ -440,9 +448,9 @@ struct UIGrid
 class SaveSystem
 {
     string saveFilePath;
-    string playerSaveFilePath;  // separate file for player data
+
     public:
-    SaveSystem(string path) : saveFilePath(path), playerSaveFilePath(path + "_player.txt") {}
+    SaveSystem(string path) : saveFilePath(path){}
 
     void SaveScene(Scene& scene);
     void LoadScene(Scene& scene);
@@ -562,7 +570,7 @@ class Player : public Character
     float   knockbackVal;
 
     public:
-    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 1, float healthRegenRate = 0.5f, float speed=4, int damage = 10, int strength = 1, int charisma = 1, int armour = 1, Vector3 position = {0,10,0}, Vector3 target = {0,0,0}) 
+    Player(string name="Abu Huraira", float maxHealth=100, float maxStamina=100, float staminaRegenRate = 1, float healthRegenRate = 0.5f, float speed=4, int damage = 10, int strength = 1, int charisma = 1, int armour = 1, Vector3 position = {-1.1f,0,9.25f}, Vector3 target = {0,0,0}) 
     : Character(name, maxHealth, speed, position, target, damage), hasJumped(false), camDist(2.5f), maxStamina(maxStamina), 
     currStamina(maxStamina), staminaRegenRate(staminaRegenRate), healthRegenRate(healthRegenRate), interactNPC(nullptr), attackHitDealt(true),
     charisma(charisma), strength(strength), armour(armour), coins(50), lastState(-1), animEnd(false)
@@ -599,14 +607,8 @@ class Player : public Character
     void BuyItem(Item* value, int coins)
     {
         try
-        { inventory.AddItem(value); }
-        catch(const failed_execution& e) { throw; }
-        catch(const out_of_space& e) { throw; }
-        catch(const empty_collection& e) { throw; }
-        catch(const out_of_range& e) { throw; }
+        { inventory.AddItem(value); this->coins -= coins; InvUI_Update(); }
         catch(...) { throw; }
-        InvUI_Update();        
-        this->coins -= coins;
     }
     void SellItem(string value, int coins)
     {
@@ -614,8 +616,7 @@ class Player : public Character
         if (idx<0) return;
 
         try { this->coins += coins;  inventory.RemoveItem(idx); InvUI_Update(); }
-        catch(const out_of_range& e) { throw; }
-        catch(const empty_collection& e) { throw; }
+        catch(...) { throw; }
     }
 
     void TakeDamage(float, Vector3);

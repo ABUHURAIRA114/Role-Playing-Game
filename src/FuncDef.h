@@ -55,23 +55,9 @@ bool IsBetween(float n, float l, float b)
     return n>=l && n<=b;
 }
 
-Vector3 Normalize(Vector3 v)
-{
-    float length = sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-    if (length == 0) return {0, 0, 0};
-    return {v.x / length, v.y / length, v.z / length};
-}
-
 float Magnitude(Vector3 v)
 {
     return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-}
-
-Vector2 Normalize(Vector2 v)
-{
-    float length = sqrt(v.x * v.x + v.y * v.y);
-    if (length == 0) return {0, 0};
-    return {v.x / length, v.y / length};
 }
 
 Vector3 operator+(Vector3& a, Vector3& b)
@@ -84,19 +70,9 @@ Vector3 operator-(Vector3& a, Vector3& b)
     return {a.x - b.x, a.y - b.y, a.z - b.z};
 }
 
-Vector3 operator-(Vector3& a, Vector2& b)
+Vector2 operator+(Vector2& a, Vector2& b)
 {
-    return {a.x - b.x, a.y, a.z - b.y};
-}
-
-Vector3 operator-(Vector2& a, Vector3& b)
-{
-    return {a.x - b.x, b.y, a.y - b.z};
-}
-
-float DotProduct(Vector3 a, Vector3 b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
+    return {a.x + b.x, a.y + b.y};
 }
 
 Vector3 CrossProduct(Vector3 a, Vector3 b)
@@ -129,8 +105,8 @@ void Box::UpdateBoundary() {
     boundary = GetMeshBoundingBox(model.meshes[0]);
     boundary.min = Vector3Scale(boundary.min, size);
     boundary.max = Vector3Scale(boundary.max, size);
-    boundary.min = Vector3Add(boundary.min, position);
-    boundary.max = Vector3Add(boundary.max, position);
+    boundary.min = boundary.min+position;
+    boundary.max = boundary.max+position;
 }
 
 // Collider ==================================================================================================================================================================================
@@ -584,11 +560,8 @@ void Scene::AddNPC(NPC* npc, int k=1)
 void Scene::UpdateNPCs()
 {
     for (int i = 0; i < enemyCount; i++)
-    {
-        enemies[i]->Update();
-    }
+    { enemies[i]->Update(); }
 
-    // Update dialogueable NPCs that also move (Boss)
     for (int i = 0; i < npcCount; i++)
     {
         Boss* boss = dynamic_cast<Boss*>(npcs[i]);
@@ -890,10 +863,12 @@ void Potion::ApplyEffect(Player& player)
 }
 
 // SaveSystem ==================================================================================================================================================================================
-// <NAME> <ASSET_NAME> <POS_X> <POS_Y> <POS_Z> <ROT_X> <ROT_Y> <ROT_Z> <SCALE>
+
 void SaveSystem::SaveScene(Scene& scene)
 {   
-    ofstream file(saveFilePath, ios::out | ios::binary);
+    // Scene save format for each object <NAME> <ASSET_NAME> <POS_X> <POS_Y> <POS_Z> <ROT_X> <ROT_Y> <ROT_Z> <SCALE>
+
+    ofstream file(saveFilePath+R"(\scene.txt)", ios::out | ios::binary);
     if (file.is_open())
     {
         for (int i = 0; i < scene.objectCount; i++)
@@ -918,7 +893,7 @@ void SaveSystem::SaveScene(Scene& scene)
 
 void SaveSystem::LoadScene(Scene& scene)
 {   
-    ifstream file(saveFilePath, ios::in | ios::binary);
+    ifstream file(saveFilePath+R"(\scene.txt)", ios::in | ios::binary);
     if (file.is_open())
     {
         while (!file.eof())
@@ -977,10 +952,10 @@ void SaveSystem::SavePlayer(Player& player)
     // EFFECT <type> <timeRemaining>  (one per active effect)
     // INV_SLOT <slotIdx> <itemName> <count>  (one per occupied slot)
 
-    ofstream file(playerSaveFilePath, ios::out);
+    ofstream file(saveFilePath+R"(\player.txt)", ios::out);
     if (!file.is_open())
     {
-        cout << "SavePlayer: could not open " << playerSaveFilePath << endl;
+        cout << "SavePlayer: could not open " << saveFilePath+R"(\player.txt)" << endl;
         return;
     }
 
@@ -1026,7 +1001,7 @@ void SaveSystem::SavePlayer(Player& player)
     }
 
     file.close();
-    cout << "Player saved to " << playerSaveFilePath << endl;
+    cout << "Player saved to " << saveFilePath+R"(\player.txt)" << endl;
 }
 
 void SaveSystem::LoadPlayer()
@@ -1034,15 +1009,14 @@ void SaveSystem::LoadPlayer()
     gI.PlayerInfo();
     Player& player = *gI.scene.player;
 
-    ifstream file(playerSaveFilePath, ios::in);
+    ifstream file(saveFilePath+R"(\player.txt)", ios::in);
     if (!file.is_open())
     {
         gI.totalStatPoints = 10;
         gI.scene.gameMode = STATS;
-        cout << "LoadPlayer: no save found at " << playerSaveFilePath << endl;
+        cout << "LoadPlayer: no save found at " << saveFilePath+R"(\player.txt)" << endl;
         return;
     }
-
 
     string token;
     while (file >> token)
@@ -1052,7 +1026,7 @@ void SaveSystem::LoadPlayer()
             gI.totalStatPoints = 10;
 
             gI.scene.gameMode = STATS;
-            cout << "Game Ended, Starting Over" << playerSaveFilePath << endl;
+            cout << "Game Ended, Starting Over" << saveFilePath+R"(\player.txt)" << endl;
             return;
         }
 
@@ -1146,7 +1120,7 @@ void SaveSystem::LoadPlayer()
     player.InvUI_Update();
     player.StateUpdate();
 
-    cout << "Player loaded from " << playerSaveFilePath << endl;
+    cout << "Player loaded from " << saveFilePath+R"(\player.txt)" << endl;
 }
 
 // GlobalInfo ==================================================================================================================================================================================
@@ -1168,7 +1142,7 @@ void GlobalInfo::LoadMenuUI()
     scene.AddUIObject(new Banner("MEN_TITLE", "The Kalled City Of Waloon",
         (Vector2){w*0.25f + 10, h*0.15f + 10}, (Vector2){w*0.5f - 20, 60}, 42, darkBrown));
 
-    scene.AddUIObject(new Banner("MEN_SUBTITLE", "A land under shadow",
+    scene.AddUIObject(new Banner("MEN_SUBTITLE", "A game",
         (Vector2){w*0.25f, h*0.15f + 90}, (Vector2){w*0.5f, 30}, 18,
         (Color){180, 150, 110, 255}));
 
@@ -1177,20 +1151,15 @@ void GlobalInfo::LoadMenuUI()
     float startY = h * 0.42f;
     float gap = 70;
 
-    scene.AddUIObject(new Button("MEN_BTN_PLAY", "Begin",
+    scene.AddUIObject(new Button("MEN_BTN_PLAY", "Play",
         (Vector2){btnX, startY}, (Vector2){btnW, btnH}, 24, btnColor));
 
-    // scene.AddUIObject(new Button("MEN_BTN_EDITOR", "Editor",
-    //     (Vector2){btnX, startY + gap}, (Vector2){btnW, btnH}, 24, btnColor));
+    scene.AddUIObject(new Button("MEN_BTN_TUTORIAL", "Tutorial",
+        (Vector2){btnX, startY + gap}, (Vector2){btnW, btnH}, 24, btnColor));
 
     scene.AddUIObject(new Button("MEN_BTN_QUIT", "Quit",
-        (Vector2){btnX, startY + gap}, (Vector2){btnW, btnH}, 24,
+        (Vector2){btnX, startY + 2*gap}, (Vector2){btnW, btnH}, 24,
         (Color){100, 30, 20, 255}));
-
-    // Version tag
-    scene.AddUIObject(new Banner("MEN_VERSION", "v0.1",
-        (Vector2){w - 70, h - 30}, (Vector2){60, 22}, 14,
-        (Color){100, 70, 45, 255}));
 }
 
 void GlobalInfo::LoadPauseUI()
@@ -1551,6 +1520,19 @@ void GlobalInfo::Assets()
 
     UnloadDirectoryFiles(files);
 
+    files = LoadDirectoryFiles((MUSIC_FOLDER_PATH+"/bg").c_str());
+
+    for (int i = 0; i<(int)files.count; i++)
+    {
+        if (IsFileExtension(files.paths[i], ".mp3"))
+        {
+            bgMusics.push_back(LoadMusicStream(files.paths[i]));
+            SetMusicPitch(bgMusics[bgMusics.size()-1], 1.0f);
+        }
+    }
+
+    UnloadDirectoryFiles(files);
+
     potions[WEAK_HEALTH_POTION]     = Potion("Weak Health Potion", HEALTH_REGEN, 10, 2);
     potions[MID_HEALTH_POTION]      = Potion("Mid Health Potion", HEALTH_REGEN, 30, 6);
     potions[POTENT_HEALTH_POTION]   = Potion("Potent Health Potion", HEALTH_REGEN, 60, 14);
@@ -1586,6 +1568,7 @@ string Type(string name)
 
 void GlobalInfo::LoadNPCs()
 {
+    scene.enemiesRemaining = 0;
     for (int n = 0; n < scene.enemySpawnCount; n++)
     {
         PossessedNPC* npc = new PossessedNPC(
@@ -1786,6 +1769,16 @@ void GlobalInfo::UnloadNPCs()
     scene.enemyCount = 0;
 }
 
+void GlobalInfo::MusicLoop()
+{
+    if (GetMusicTimePlayed(bgMusics[currentMusic])/GetMusicTimeLength(bgMusics[currentMusic]) >= 0.95f || (IsKeyPressed(KEY_P) && IsKeyDown(KEY_LEFT_CONTROL))) 
+    {
+        currentMusic = (currentMusic+1)%bgMusics.size();
+        PlayMusicStream(bgMusics[currentMusic]);
+    }
+    UpdateMusicStream(bgMusics[currentMusic]);
+}
+
 // Character ==================================================================================================================================================================================
 
 void Character::Update()
@@ -1794,7 +1787,7 @@ void Character::Update()
     Vector3 direction = (target-position);
     if (Magnitude(direction) > 0)
     {
-        position = position + Normalize(direction)*speed*gI.dT*speedMultiplier;
+        position = position + Vector3Normalize(direction)*speed*gI.dT*speedMultiplier;
     }
 
     float ax = fabs(direction.x);
@@ -1974,6 +1967,12 @@ void Merchant::DialogueSetup()
     dialogues[1].dialogue = gI.MERCHANT_SELL[rand()%5];
     dialogues[2].dialogue = gI.MERCHANT_BUY[rand()%5];
 
+    Banner* banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueSpeakerTextIdx]);
+    if (banner) banner->_Text()._Text(name);
+
+    banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
+    if (banner) banner->_Text()._Text(dialogues[dialogueIdx].dialogue);
+
     Player* pl = gI.scene.player;
 
     if (!pl) return;
@@ -2004,7 +2003,7 @@ void Merchant::Dialogue()
     if (dialogueIdx == -1) return;
 
     Player* pl = gI.scene.player;
-
+    Banner* banner = nullptr;
     if (!pl) return;
 
     if (dialogueIdx == 2)
@@ -2027,12 +2026,6 @@ void Merchant::Dialogue()
         sellChoices[1].second = (pl->_Inventory().itemsCount[1] > 0) ? pl->_Inventory().items[1][0]->Name() + " for " + to_string(sellPrices[1]) : "Nothing";
     }
 
-    Banner* banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
-    if (banner) banner->_Text()._Text(dialogues[dialogueIdx].dialogue);
-
-    banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueSpeakerTextIdx]);
-    if (banner) banner->_Text()._Text(name);
- 
     for (const auto& choice : dialogues[dialogueIdx].choices)
     {
         banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.choice1Idx+choice.first]);
@@ -2040,28 +2033,47 @@ void Merchant::Dialogue()
     }
     
     int inp = GetKeyPressed();
-     
+    
     if (inp >= '1' && inp <= '3')
     {
         int choiceIdx = inp - '1';
         auto it = dialogues[dialogueIdx].choices.find(choiceIdx);
         if (it == dialogues[dialogueIdx].choices.end()) return;
 
-        string choiceText = it->second.second;
+        if (dialogueIdx == 0 || (dialogueIdx>0 && choiceIdx == 2))
+        {
+            dialogueIdx = dialogues[dialogueIdx].choices[choiceIdx].first;
 
-        // --- Buy logic (node 1 -> buying an item) ---
+            if (dialogueIdx == -1) return; 
+
+            banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
+            if (banner) banner->_Text()._Text(dialogues[dialogueIdx].dialogue);
+
+            return;
+        }
+
         if (dialogueIdx == 1 && choiceIdx < 2)
         {
             for (int p = 0; p < 7; p++)
             {
                 if (gI.potions[p].Name() != items[choiceIdx]) continue;
                 
-                if (pl->Coins() < buyPrices[choiceIdx]) break;
+                if (pl->Coins() < buyPrices[choiceIdx]) return;
 
                 try { pl->BuyItem(new Potion(gI.potions[p]), buyPrices[choiceIdx]); }
-                catch(...) {}
+                catch(const failed_execution& e) { 
+                    cout<<e.what()<<endl;
+                    banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
+                    if (banner) banner->_Text()._Text("You are out of free inventory slots!");
+                }
+                catch(const out_of_space& e) {
+                    cout<<e.what()<<endl;
+                    banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
+                    if (banner) banner->_Text()._Text("You are out of inventory space!");
+                }
+                catch(...) { cout<<"Unknown exception during buy!\n"; }
 
-                break;
+                return;
             } 
         }
 
@@ -2074,8 +2086,14 @@ void Merchant::Dialogue()
                 if (gI.potions[p].Name() != pl->_Inventory().items[choiceIdx][0]->Name()) continue;
                 
                 try { pl->SellItem(pl->_Inventory().items[choiceIdx][0]->Name(),  sellPrices[choiceIdx]);}
-                catch(...) {}
-                break;
+                catch(const out_of_range& e) { cout<<e.what()<<endl; }
+                catch(const empty_collection& e) { 
+                    banner = dynamic_cast<Banner*>(gI.scene.ui[gI.scene.dialogueTextIdx]);
+                    if (banner) banner->_Text()._Text("That slot is empty"); 
+                }
+                catch(...) {cout<<"Unknown exception during sell!\n";}
+
+                return;
             }
         }
 
@@ -2090,18 +2108,6 @@ void Merchant::DrawCharacter()
     int i = IDLE; // merchant always idle
 
     Texture2D anim[4] = {anims[i][0], anims[i][1], anims[i][2], anims[i][3]};
-
-    frameTimer += gI.dT;
-    if (frameTimer >= 0.12f)
-    {
-        frameTimer = 0.0f;
-        if (anim[currDir].id > 0 && anim[currDir].width > 0 && (int)frameWidth[i] > 0)
-        {
-            int maxFrames = anim[currDir].width / (int)frameWidth[i];
-            currentFrame = (currentFrame + 1) % maxFrames;
-        }
-        else currentFrame = 0;
-    }
 
     Rectangle sourceRec = {
         (float)currentFrame * frameWidth[i],
@@ -2157,7 +2163,7 @@ void PossessedNPC::TakeDamage(float amount, Vector3 attackPos)
     hurtTimer = 0.4f;
 
     knockbackVal    = 1;
-    knockbackVelocity = Normalize(Vector3Subtract(attackPos, position)) * -amount * gI.VELOCITY_CONST/3;
+    knockbackVelocity = Vector3Normalize(attackPos-position) * -amount * gI.VELOCITY_CONST/3;
 }
 
 void PossessedNPC::Update()
@@ -2304,7 +2310,7 @@ void Player::TakeDamage(float amount, Vector3 attackPos)
     currHealth          -= damageTaken;
 
     knockbackVal        = 1;
-    knockbackVelocity   = Normalize(Vector3Subtract(attackPos, position))*(-amount/armour)*gI.VELOCITY_CONST;
+    knockbackVelocity   = Vector3Normalize(Vector3Subtract(attackPos, position))*(-amount/armour)*gI.VELOCITY_CONST;
 
     if (currHealth<=0) gI.scene.ShowPlayerDeathScreen();
 }
@@ -2376,8 +2382,10 @@ void Player::Update()
 
     if (gI.scene.dialogueVisible) return;
     
-    groundRay.position  = position-(Vector3){0, size/2-0.1f, 0};
-    Vector2 moveInput   = GetDirectionalInputV();
+    groundRay.position              = position-(Vector3){0, size/2-0.1f, 0};
+    Vector2 moveInput               = GetDirectionalInputV();
+    Vector2 moveInputSecondary      = GetDirectionalInputV(gI.SECONDARY_FORWARD_KEY, gI.SECONDARY_BACKWARD_KEY, gI.SECONDARY_LEFT_KEY, gI.SECONDARY_RIGHT_KEY);
+    moveInput                       = Vector2Normalize(moveInput+moveInputSecondary);
 
     if (state == HURT)
     {
@@ -2390,12 +2398,12 @@ void Player::Update()
 
     knockbackVelocity   = knockbackVelocity*knockbackVal;
     if (knockbackVal>0) knockbackVal -= gI.dT * gI.KNOCKBACK_CONST;
-    else knockbackVal = 0;
+    else knockbackVal   = 0;
 
     directionRay.position   = position;
     Vector3 currentTarget   = target;
     target                  = (position + inputDir);
-    directionRay.direction  = Normalize(target-position);
+    directionRay.direction  = Vector3Normalize(target-position);
     
     for (int i = 0; i<gI.scene.colliderCount; i++) 
     {
@@ -2411,13 +2419,13 @@ void Player::Update()
         }
     }
     
-    isSprinting = (IsKeyDown(gI.SPRINT_KEY) && currStamina>0 ? true : false);
+    isSprinting = ((IsKeyDown(gI.SPRINT_KEY) || IsKeyDown(gI.SECONDARY_SPRINT_KEY)) && currStamina>0 ? true : false);
 
     speedMultiplier = (isSprinting?2:1);
     Character::Update();
 
     camera.position = {position.x, position.y+camDist, position.z+camDist};
-    camera.target = position;
+    camera.target   = position;
     
     CalculateIsGrounded();
 
@@ -2433,11 +2441,11 @@ void Player::Update()
         
         if (IsKeyPressed(gI.JUMP_KEY))
         {
-            hasJumped = true;
-            isGrounded = false;
-            yVelocity = 5.0f;
+            hasJumped   = true;
+            isGrounded  = false;
+            yVelocity   = 5.0f;
         }
-        else yVelocity = 0;
+        else yVelocity  = 0;
     }
     else 
     {
@@ -2445,7 +2453,7 @@ void Player::Update()
         yVelocity -= 9.8f * gI.dT;
     }
     
-    yVelocity = Clamp(yVelocity, -15, 10);
+    yVelocity   = Clamp(yVelocity, -15, 10);
     position.y +=  yVelocity * gI.dT;
 }
 
@@ -2798,15 +2806,15 @@ void Boss::Dialogue()
 
 void Boss::TakeDamage(float amount, Vector3 attackPos)
 {
-    if (currHealth <= 0) return;
-    if (state == DIE) return;
+    if (currHealth <= 0)    return;
+    if (state == DIE)       return;
 
-    currHealth = Clamp(currHealth - amount, 0, maxHealth);
-    state = HURT;
-    hurtTimer = 0.2f;
+    currHealth  = Clamp(currHealth - amount, 0, maxHealth);
+    state       = HURT;
+    hurtTimer   = 0.2f;
 
-    knockbackVal    = 1;
-    knockbackVelocity = Normalize(Vector3Subtract(attackPos, position)) * -amount * gI.VELOCITY_CONST/5;
+    knockbackVal        = 1;
+    knockbackVelocity   = Vector3Normalize(Vector3Subtract(attackPos, position)) * -amount * gI.VELOCITY_CONST/5;
 
     if (currHealth <= 0) gI.scene.ShowBossDeathScreen();
 }
@@ -2935,8 +2943,6 @@ void Boss::DrawCharacter()
 
 void Boss::DrawInteractPrompt()
 {
-    cout<<"\n\tBoss Interact\n\n";
-
     if (!gI.scene.player) return;
 
     if (gI.scene.dialogueVisible || isHostile) return;
