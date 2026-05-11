@@ -1,6 +1,6 @@
 # ⚔️ Role-Playing Game
 
-> A 3D role-playing game built in C++ using [Raylib](https://www.raylib.com/), developed as a CS112 semester project.
+> A 2.5D role-playing game built in C++ using [Raylib](https://www.raylib.com/), developed as a CS112 semester project.
 
 ![preview](preview.jpg)
 
@@ -8,7 +8,7 @@
 
 ## 🗺️ Overview
 
-*This is a third-person 2.5D RPG set in a fantasy world. The player explores a city populated with civilians, hostile enemies, merchants, and a final boss — each with unique behaviour and dialogue. 
+This is a third-person 2.5D RPG set in a fantasy world. The player explores a city populated with civilians, hostile enemies, merchants, and a final boss — each with unique behaviour and dialogue. 
 
 ---
 
