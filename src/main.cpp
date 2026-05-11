@@ -1,7 +1,7 @@
 #include "FuncDef.h"
 
 GlobalInfo gI;
-SaveSystem save(gI.SAVE_FOLDER_PATH);
+SaveSystem save = SaveSystem(gI.SAVE_FOLDER_PATH);
 string text;
 bool close; // check for when the game should close
 

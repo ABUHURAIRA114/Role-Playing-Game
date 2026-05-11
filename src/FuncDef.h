@@ -2658,7 +2658,7 @@ void Player::Attack()
 {
     if (currHealth <= 0 || gI.scene.dialogueVisible) return;
     
-    if (IsKeyPressed(gI.ATTACK_KEY) || IsMouseButtonPressed(gI.ATTACK_KEY_MOUSE)) state = ATTACKING;
+    if (IsKeyPressed(gI.SECONDARY_ATTACK_KEY) ||IsKeyPressed(gI.ATTACK_KEY) || IsMouseButtonPressed(gI.ATTACK_KEY_MOUSE)) state = ATTACKING;
 
     if (gI.scene.player->state != ATTACKING) 
     {

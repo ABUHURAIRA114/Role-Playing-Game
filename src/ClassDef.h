@@ -328,6 +328,7 @@ struct GlobalInfo
     const int SPRINT_KEY                = KEY_LEFT_SHIFT;
     const int SECONDARY_SPRINT_KEY      = KEY_RIGHT_SHIFT;
     const int ATTACK_KEY                = KEY_LEFT_CONTROL;
+    const int SECONDARY_ATTACK_KEY      = KEY_RIGHT_CONTROL;
     const int ATTACK_KEY_MOUSE          = MOUSE_BUTTON_LEFT;
     const int INV_1                     = KEY_ONE;
     const int INV_2                     = KEY_TWO;
