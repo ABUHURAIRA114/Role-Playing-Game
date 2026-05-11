@@ -1,4 +1,4 @@
-# ⚔️ The Kalled City of Waloon
+# ⚔️ Role-Playing Game
 
 > A 3D role-playing game built in C++ using [Raylib](https://www.raylib.com/), developed as a CS112 semester project.
 
@@ -8,7 +8,7 @@
 
 ## 🗺️ Overview
 
-**The Kalled City of Waloon** is a third-person 3D RPG set in a dark fantasy world. The player explores a city populated with civilians, hostile enemies, merchants, and a final boss — each with unique behaviour and dialogue. The game ships with a built-in **level editor** that lets you place objects and spawn points without recompiling.
+*This is a third-person 2.5D RPG set in a fantasy world. The player explores a city populated with civilians, hostile enemies, merchants, and a final boss — each with unique behaviour and dialogue. 
 
 ---
 
