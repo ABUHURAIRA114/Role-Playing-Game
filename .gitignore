@@ -1,2 +1,4 @@
 *.dsym
 main
+config.bat
+node_modules

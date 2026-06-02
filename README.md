@@ -10,6 +10,8 @@
 
 This is a third-person 2.5D RPG set in a fantasy world. The player explores a city populated with civilians, hostile enemies, merchants, and a final boss — each with unique behaviour and dialogue. 
 
+Click [here](https://abuhuraira.itch.io/the-kalled-city-of-waloon) to download the game.
+
 ---
 
 ## ✨ Features
