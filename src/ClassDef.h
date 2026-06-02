@@ -252,6 +252,9 @@ struct Scene
     // Purpose : Calls Update() on all enemies and Boss NPCs each frame
     // Returns : void
     void UpdateNPCs();
+
+    // Purpose : Sets the active state of each object based on certain flags
+    void ActiveSet();
 };
 
 class Item
@@ -477,6 +480,7 @@ class TransformMI
     Vector3 position;
     Vector3 rotation;
     float size;
+    bool isActive;
 
     public:
 
@@ -490,7 +494,7 @@ class TransformMI
 
     // Purpose : Returns the object's name
     // Returns : string
-    virtual string Name() { return name; }
+    string Name() { return name; }
 
     // Purpose : Returns the object's world position
     // Returns : Vector3
@@ -504,6 +508,9 @@ class TransformMI
     // Returns : float
     virtual float Size() { return size; }
 
+    // Purpose : Returns whether the object is active
+    bool IsActive() { return isActive; }
+
     // Purpose : Sets the object's world position
     // Params  : newPos (Vector3)
     // Returns : void
@@ -512,7 +519,7 @@ class TransformMI
     // Purpose : Sets the object's name
     // Params  : name (string)
     // Returns : void
-    virtual void Name(string name) { this->name = name; }
+    void Name(string name) { this->name = name; }
 
     // Purpose : Sets the object's rotation
     // Params  : newRotation (Vector3) — Euler angles in radians
@@ -523,6 +530,9 @@ class TransformMI
     // Params  : newSize (float)
     // Returns : void
     virtual void Size(float newSize) { size = newSize; }
+
+    // Purpose : Set the object's active state
+    void IsActive(bool value) { isActive = value; }
 };
 
 class Box : public TransformMI
@@ -609,26 +619,17 @@ class Box : public TransformMI
     // Returns : void
     void Size(float newSize) { size = newSize; UpdateBoundary(); }
 
-    // Purpose : Sets the object's name
-    // Params  : name (string)
-    // Returns : void
-    void Name(string name) { this->name = name; } 
-    
-    // Purpose : Returns the world position
+    // Purpose : Returns the object's world position
     // Returns : Vector3
     Vector3 Position() { return position; }
 
-    // Purpose : Returns the Euler rotation
+    // Purpose : Returns the object's rotation (Euler, radians)
     // Returns : Vector3
     Vector3 Rotation() { return rotation; }
 
-    // Purpose : Returns the uniform scale
+    // Purpose : Returns the object's uniform scale
     // Returns : float
     float Size() { return size; }
-
-    // Purpose : Returns the object's name
-    // Returns : string
-    string Name() { return name; }
 
     // Purpose : Returns the asset name key used to load this box's model and texture
     // Returns : string
@@ -670,35 +671,13 @@ class Collider : public TransformMI
     // Returns : void
     void Position(Vector3 newPos) { position = newPos; UpdateBoundary(); }
 
-    // Purpose : Sets the uniform size value (does not change per-axis scale directly)
-    // Params  : newSize (float)
-    // Returns : void
-    void Size(float newSize)      { size = newSize; UpdateBoundary(); }
-
-    // Purpose : Sets the collider's name
-    // Params  : name (string)
-    // Returns : void
-    void Name(string name)        { this->name = name; }
-
-    // Purpose : Returns the world position
-    // Returns : Vector3
-    Vector3 Position() { return position; }
-
-    // Purpose : Returns the Euler rotation (always zero for colliders)
-    // Returns : Vector3
-    Vector3 Rotation() { return rotation; }
-
-    // Purpose : Returns the uniform size value
-    // Returns : float
-    float   Size()     { return size; }
-
-    // Purpose : Returns the collider's name
-    // Returns : string
-    string  Name()     { return name; }
-
     // Purpose : Returns the per-axis scale vector
     // Returns : Vector3
     Vector3 Scale()    { return scale; }
+
+       // Purpose : Returns the object's world position
+    // Returns : Vector3
+    Vector3 Position() { return position; }
 
     // Purpose : Sets the X scale component, clamped to a minimum of 0.05, then updates the boundary
     // Params  : v (float) — new X scale

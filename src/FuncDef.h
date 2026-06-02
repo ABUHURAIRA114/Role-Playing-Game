@@ -127,13 +127,10 @@ void Box::UpdateRotation() {
     Quaternion qPitch = QuaternionFromAxisAngle((Vector3){1, 0, 0}, rotation.x);
     Quaternion qYaw   = QuaternionFromAxisAngle((Vector3){0, 1, 0}, rotation.y);
     
-    // 3. Combine them (Order matters! Usually Yaw * Pitch * Roll)
     Quaternion qCombined = QuaternionMultiply(qYaw, qPitch);
     
-    // 4. Convert the Quaternion to a Transform Matrix
     Matrix rotationMatrix = QuaternionToMatrix(qCombined);
     
-    // 5. Apply it to your model
     model.transform = rotationMatrix;
 }
 
@@ -446,18 +443,20 @@ void Scene::SpeedScroll()
 
 void Scene::DrawScene()
 {
+    ActiveSet();
+
     for (int i = 0; i < objectCount; i++)
     {
+        if (!objects[i]->IsActive()) continue;
+
         Box* box = objects[i];
-
-        if (box->Name().find("SPAWNER") != string::npos && gI.mode != EDITOR) continue;
-
         DrawModel(box->_Model(), box->Position(), box->Size(), WHITE);
     }
 
-    if (gI.mode == EDITOR)
     for (int i = 0; i < colliderCount; i++)
     {
+        if (!colliders[i]->IsActive()) continue;
+
         Collider* col = colliders[i];
         BeginBlendMode(BLEND_ALPHA);
         DrawModelEx(col->_Model(), col->Position(), {0,1,0}, 0, col->Scale(), (Color){0,255,0,150});
@@ -499,6 +498,23 @@ void Scene::DrawScene()
     {
         const AnimationData* b = item.second;
         DrawBillboardRec(b->camera, b->frame, b->source, b->position, b->size, b->color);
+    }
+}
+
+void Scene::ActiveSet()
+{
+    for (int i = 0; i<objectCount; i++)
+    {
+        bool active = false;
+        if (gI.mode == EDITOR) active = true;
+        else if (gI.mode == GAME) active = objects[i]->Name().find("SPAWNER") == string::npos;
+        objects[i]->IsActive(active);
+    }
+
+    for (int i = 0; i<colliderCount; i++)
+    {
+        bool active = gI.mode == EDITOR;
+        colliders[i]->IsActive(active);
     }
 }
 
